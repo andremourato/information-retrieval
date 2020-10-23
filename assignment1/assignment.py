@@ -1,7 +1,11 @@
+##########################
+#   Authors             
+##########################
+#   André Mourato
+#   Gonçalo Marques
+##########################
 import csv
-import re
 import Stemmer
-# from memory_profiler import profile
 import tracemalloc
 import time
 import sys
@@ -20,18 +24,11 @@ def read_corpus(file):
 
     return documentList
 
-# def remove_chars(string, char_list=['(',')','&ndash;',\
-#                                     '.',',','%','[',']',\
-#                                     ':','/','\'','\\','-']):
-#     return ' '.join([string.replace(c,' ') for c in char_list])
-
 def remove_chars(string):
-    # table = str.maketrans({"(":'', ")":'',"{":'',"}":'',"[":'',"]":'',"-":'',"#":'',"%":'',"$":'',"&":'', "/":'', ".":'', ",":''})
-    # return string.translate(table)
     return ''.join([ c if c.isalpha() or c.isnumeric() else ' ' for c in string])
 
-def filter_stop_words(lst):
-    return [doc for doc in lst if doc not in stopwords]
+def filter_stop_words(string):
+    return [token for token in string.lower().split() if token not in stopwords if len(token) >= 3]
 
 def simple_tokenizer(lst):
     # replaces all non-alphabetic characters by a space, 
@@ -41,10 +38,11 @@ def simple_tokenizer(lst):
     return [[token for token in remove_chars(document).lower().split() if len(token) >= 3] for document in lst]
 
 def improved_tokenizer(lst):
-    stemmer = Stemmer.Stemmer('porter')
-    return filter_stop_words([ stemmer.stemWords(document.split()) for document in lst ])
+    stemmer = Stemmer.Stemmer('english')
+    #stemmer.stemWords(['cycling', 'cyclist']))
+    #print(filter_stop_words(remove_chars(lst[0])))
+    return [ stemmer.stemWords(filter_stop_words(remove_chars(document))) for document in lst ]
 
-# @profile(precision=4)
 def indexer(lst):
     count_index = {}
     document_index = {}
@@ -76,9 +74,9 @@ stopwords = load_stop_words('stopwords.txt')
 #2 - Applies the tokenizer
 #2a - Applies the simple tokenizer
 if indexer_mode == 1:
-    index = simple_tokenizer(lst[:3])
+    index = simple_tokenizer(lst)
 else:#2b - Applies the improved tokenizer
-    index = improved_tokenizer(lst[:3])
+    index = improved_tokenizer(lst)
 
 #3 - Creates an indexing pipeline
 time_start = time.process_time()
@@ -88,5 +86,11 @@ print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
 tracemalloc.stop()
 print('Elapsed:',time.process_time() - time_start,'s')
 
-print(count_index)
+sort_orders = sorted(count_index.items(), key=lambda x: x[1], reverse=True)
+
+# print(count_index)
+
+#b)
+print('Vocabulary size:',len(count_index.keys()))
+print(sort_orders[0:10])
 #print(document_index)
