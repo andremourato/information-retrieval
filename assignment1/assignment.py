@@ -42,7 +42,7 @@ def simple_tokenizer(lst):
 
 def improved_tokenizer(lst):
     stemmer = Stemmer.Stemmer('porter')
-    return filter_stop_words([ stemmer.stemWords(document.split()) for document in lst ])
+    return filter_stop_words([ stemmer.stemWords(remove_chars(document).split()) for document in lst ])
 
 # @profile(precision=4)
 def indexer(lst):
@@ -80,13 +80,25 @@ if indexer_mode == 1:
 else:#2b - Applies the improved tokenizer
     index = improved_tokenizer(lst[:3])
 
-#3 - Creates an indexing pipeline
+#3 / 4.a - Creates an indexing pipeline and monitors how much time and memory were used in the indexing process
 time_start = time.process_time()
 count_index, document_index = indexer(index)
 current, peak = tracemalloc.get_traced_memory()
-print(f"Current memory usage is {current / 10**6}MB; Peak was {peak / 10**6}MB")
+print(f"Current memory usage for indexing is {current / 10**6}MB; Peak was {peak / 10**6}MB")
 tracemalloc.stop()
 print('Elapsed:',time.process_time() - time_start,'s')
 
-print(count_index)
-#print(document_index)
+#4.b - Vocabulary size
+print('\nTotal vocabulary size is: ',len(count_index),' words')
+
+#4.c - 10 first terms with document frequency = 1 alphabetically ordered
+ordered_list = []
+for key in document_index:
+    if len(document_index[key]) == 1:
+        ordered_list.append(key)
+print('\nFirst 10 alphabetically ordered terms with document frequency = 1:')
+print(sorted(document_index)[:10])
+
+#4.d - 10 terms with the highest document frequency
+print('\n10 terms with the highest document frequency:')
+print(sorted(document_index, key = lambda key: len(document_index[key]))[-10:])
