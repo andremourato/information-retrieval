@@ -38,15 +38,8 @@ def simple_tokenizer(lst):
     return [[token for token in remove_chars(document).lower().split() if len(token) >= 3] for document in lst]
 
 def improved_tokenizer(lst):
-<<<<<<< HEAD
-    stemmer = Stemmer.Stemmer('english')
-    #stemmer.stemWords(['cycling', 'cyclist']))
-    #print(filter_stop_words(remove_chars(lst[0])))
-    return [ stemmer.stemWords(filter_stop_words(remove_chars(document))) for document in lst ]
-=======
     stemmer = Stemmer.Stemmer('porter')
     return filter_stop_words([ stemmer.stemWords(remove_chars(document).split()) for document in lst ])
->>>>>>> fb7892adec86928c7264c18badc9c946245b478f
 
 def indexer(lst):
     count_index = {}
