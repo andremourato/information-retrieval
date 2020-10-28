@@ -1,7 +1,7 @@
 Reading from file all_sources_metadata_2020-03-13.csv
 --------------------- RUNNING THE SIMPLE TOKENIZER ---------------------
-a) Total indexing time: 3.297760566999999 s
-a) Memory usage for indexing was 51.901524MB; Peak was 51.901836MB
+a) Total indexing time: 3.5463151760000002 s
+a) Memory usage for indexing was 52.19618MB; Peak was 52.196492MB
 
 b) Total vocabulary size is:  61632 words
 
@@ -13,8 +13,8 @@ d) 10 terms with the highest document frequency:
 
 
 --------------------- RUNNING THE IMPROVED TOKENIZER ---------------------
-a) Total indexing time: 2.1765532100000016 s
-a) Memory usage for indexing was 41.084396MB; Peak was 41.084708MB
+a) Total indexing time: 2.6857263290000013 s
+a) Memory usage for indexing was 41.306716MB; Peak was 41.307028MB
 
 b) Total vocabulary size is:  45547 words
 

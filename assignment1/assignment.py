@@ -24,22 +24,21 @@ def read_corpus(filename):
     Returns
     -------
     dict : dict
-        Dictionary that associates the doi of documents to their title + abstract.
+        Dictionary that associates a unique id of each document to their title + abstract.
 
     The output has the following format:
     {
-        'doi-1111': 'Document 1 This is the abstract',
-        'doi-2222': 'Document 2 This is the abstract',
-        'doi-3333': 'Document 3 This is the abstract'
+        1: 'Document 1 This is the abstract',
+        2: 'Document 2 This is the abstract',
+        3: 'Document 3 This is the abstract'
     }
     '''
     with open(filename) as csvfile:
-        dic = {}
-        for idx,row in enumerate(csv.DictReader(csvfile)):
-            if len(row['abstract']) > 0:
-                dic[idx] =  row['title'] + ' ' + row['abstract']
-
-        return dic
+        return {
+            idx:row['title'] + ' ' + row['abstract']\
+                for idx,row in enumerate(csv.DictReader(csvfile))\
+                    if len(row['abstract']) > 0
+        }
 
 def get_filtered_tokens(string):
     '''Removes non-alphabetic characters, sets string to lower case and
@@ -83,12 +82,12 @@ def simple_tokenizer(document_dict):
     Parameters
     ----------
     document_dict : dict
-        Dictionary that associates the doi of documents to their title + abstract.
+        Dictionary that associates a unique id of each document to their title + abstract.
         
     Returns
     -------
     document_dict : dict
-        Dictionary that associates the doi of documents to the list of tokens
+        Dictionary that associates a unique id of each document to the list of tokens
         contained in it
     '''
     return {
@@ -103,12 +102,12 @@ def improved_tokenizer(document_dict):
     Parameters
     ----------
     document_dict : dict
-        Dictionary that associates the doi of documents to their title + abstract.
+        Dictionary that associates a unique id of each document to their title + abstract.
         
     Returns
     -------
     document_dict : dict
-        Dictionary that associates the doi of documents to the list of tokens
+        Dictionary that associates a unique id of each document to the list of tokens
         contained in it
     '''
     return {
@@ -122,7 +121,8 @@ def indexer(document_dict):
     Parameters
     ----------
     document_dict : dict
-        Dictionary that associates the doi of documents to the list of tokens
+        Dictionary that associates a unique id of each document to the list of tokens
+        contained in it
         
     Returns
     -------
@@ -140,26 +140,22 @@ def indexer(document_dict):
     document_index : dict
         Dictionary that contains the token as the key and the list of documents as the value.
         Example: {
-            'incub': ['10.3390/jcm9020538', '10.3390/jcm9020538', '10.3390/jcm9020538'],
-            'period': ['10.3390/jcm9020538']
+            'incub': [8, 2],
+            'period': [8, 2, 5]
         }
     '''
     count_index = {}
     document_index = {}
     for docID in document_dict:
         for token in document_dict[docID]:
-            if token not in count_index:
-                count_index[token] = 1
-            else:
-                count_index[token] += 1
-            if token not in document_index:
-                document_index[token] = [docID]
-            else:
-                document_index[token].append(docID)
+            count_index[token] = count_index.setdefault(token, 0) + 1
+            document_index.setdefault(token,[]).append(docID)
     return count_index, document_index
 
+###################
+# Assignment 1
+###################
 if __name__ == '__main__':
-
     if len(sys.argv) < 2:
         filename = 'all_sources_metadata_2020-03-13.csv'
     else:
@@ -190,6 +186,7 @@ if __name__ == '__main__':
         current, peak = tracemalloc.get_traced_memory()
         print(f"a) Memory usage for indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
         tracemalloc.stop()
+
         #4.b - Vocabulary size
         print('\nb) Total vocabulary size is: ',len(count_index),'words')
 
