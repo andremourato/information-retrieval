@@ -37,10 +37,8 @@ def read_corpus(filename):
         dic = {}
         for idx,row in enumerate(csv.DictReader(csvfile)):
             if len(row['abstract']) > 0:
-                if row['doi'] not in dic:
-                    dic[row['doi']] =  row['title'] + ' ' + row['abstract']
-                else:
-                    dic[row['doi']] +=  ' '+row['title'] + ' ' + row['abstract']
+                dic[idx] =  row['title'] + ' ' + row['abstract']
+
         return dic
 
 def get_filtered_tokens(string):
