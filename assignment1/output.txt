@@ -1,0 +1,25 @@
+Reading from file all_sources_metadata_2020-03-13.csv
+--------------------- RUNNING THE SIMPLE TOKENIZER ---------------------
+a) Total indexing time: 3.297760566999999 s
+a) Memory usage for indexing was 51.901524MB; Peak was 51.901836MB
+
+b) Total vocabulary size is:  61632 words
+
+c) First 10 alphabetically ordered terms with document frequency = 1:
+['aaaauga', 'aaac', 'aaag', 'aaap', 'aaars', 'aacaaaaaaggg', 'aacetaminophen', 'aacgaa', 'aacuaaa', 'aada']
+
+d) 10 terms with the highest document frequency:
+['this', 'from', 'was', 'virus', 'were', 'that', 'with', 'for', 'and', 'the']
+
+
+--------------------- RUNNING THE IMPROVED TOKENIZER ---------------------
+a) Total indexing time: 2.1765532100000016 s
+a) Memory usage for indexing was 41.084396MB; Peak was 41.084708MB
+
+b) Total vocabulary size is:  45547 words
+
+c) First 10 alphabetically ordered terms with document frequency = 1:
+['aaaauga', 'aaac', 'aaag', 'aaap', 'aaar', 'aacaaaaaaggg', 'aacetaminophen', 'aacgaa', 'aacuaaa', 'aada']
+
+d) 10 terms with the highest document frequency:
+['respiratori', 'human', 'diseas', 'studi', 'viral', 'us', 'protein', 'cell', 'viru', 'infect']
