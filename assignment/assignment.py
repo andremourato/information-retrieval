@@ -4,32 +4,17 @@
 #   André Mourato nmec 84745
 #   Gonçalo Marques nmec 80327
 ###############################
-import csv
+# Benchmarking
 import tracemalloc
 import time
+# Necessary imports
 import sys
 import math
-#debugging
-import json
 import Stemmer
-
 import operator
-
-def load_stop_words(file):
-    with open(file)  as f_in:
-        return [ _.split()[0] for _ in f_in ]
-
-def load_queries(file):
-    with open(file)  as f_in:
-        return [
-            Stemmer.Stemmer('porter').stemWords(\
-                remove_non_alpha(' '.join(\
-                    [word for word in q.split() if len(word) >= 3 and word not in stopwords]))) for q in f_in
-        ]
-                
-
-def remove_non_alpha(string):
-    return ''.join([ c if c.isalpha() else ' ' for c in string.lower()]).split() 
+import csv
+# File imports
+from utils import *
 
 def indexer(filename):
     '''An improved tokenizer that replaces all non-alphabetic characters by a space, lowercases
@@ -44,7 +29,7 @@ def indexer(filename):
     term_index : dict
         Dictionary that contains the token as the key and the number of occurences as the value.
         Example: {
-            2: {
+            9dj07sac: {
                 "incub": 4,
                 "period": 4,
                 "epidemiolog": 2,
@@ -61,8 +46,7 @@ def indexer(filename):
         # and joining the title and abstract fields into a single string
         for idx,row in enumerate(csv.DictReader(csvfile)):
             if len(row['abstract']) > 0:
-                string =  row['title'] + ' ' + row['abstract'] 
-
+                string =  row['title'] + ' ' + row['abstract']
                 # Removes non-alphabetic characters by a space, lowercases
                 # tokens, splits on whitespace, and ignores all tokens with less than 3 characters.
                 # This tokenizer also uses the Porter stemmer and applies a stopword filter
@@ -74,16 +58,16 @@ def indexer(filename):
                     # the term_index dict which registers the total number of occurrences
                     # of a token in each document
                     # Counts the number of tokens in each document
-                    if idx not in document_length_index:
-                        document_length_index[idx] = 0
-                    document_length_index[idx] += 1
+                    if row['cord_uid'] not in document_length_index:
+                        document_length_index[row['cord_uid']] = 0
+                    document_length_index[row['cord_uid']] += 1
                     # Counts the term frequency
-                    if idx not in term_index:
-                        term_index[idx] = {}
-                    if tok not in term_index[idx]:
-                        term_index[idx][tok] = 1
+                    if row['cord_uid'] not in term_index:
+                        term_index[row['cord_uid']] = {}
+                    if tok not in term_index[row['cord_uid']]:
+                        term_index[row['cord_uid']][tok] = 1
                     else:
-                        term_index[idx][tok] += 1
+                        term_index[row['cord_uid']][tok] += 1
     
     return term_index, document_length_index
 
@@ -143,7 +127,7 @@ def dump_term_idf_weights_to_file(document_term_weights, term_document_weights, 
         for (token,idf) in idf_list.items():
             s = '%s:%f' % (token,idf)
             for docID in term_document_weights[token]:
-                s += ';%d:%f' % (docID,term_document_weights[token][docID])
+                s += ';%s:%f' % (docID,term_document_weights[token][docID])
             write_file.write("%s\n" % s)
 
 def weighting_tf_idf(term_index,document_length_index,queries):
@@ -151,7 +135,6 @@ def weighting_tf_idf(term_index,document_length_index,queries):
     document_term_weights, term_document_weights, idf_list = lnc_calculation(term_index,document_length_index)
 
     dump_term_idf_weights_to_file(document_term_weights, term_document_weights, idf_list)
-    # exit(3)
 
     # 2 - LTC calculation
     query_weights, document_query_weights, scores = ltc_calculation(term_document_weights,document_term_weights,idf_list,queries)
@@ -175,29 +158,34 @@ def weighting_tf_idf(term_index,document_length_index,queries):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        filename = 'all_sources_metadata_2020-03-13.csv'
+        filename = 'datasets/metadata_2020-03-27.csv'
     else:
         filename = sys.argv[1]
-    print('Reading from file',filename)
-
-    print('\n------------------------------')
-    print('IMPROVED TOKENIZER')
+    print('Reading dataset from file',filename)
+    print('------------------------------')
 
     # Trace used memory and time for the 
     # indexing process using the improved tokenizer
     tracemalloc.start()
     time_start = time.process_time()
 
+    #########################################################
+    # LOADING INFORMATION FROM FILE
+    #########################################################
     stopwords = load_stop_words('stopwords.txt')
+    queries = load_queries('queries.txt',stopwords)
 
-    # Loads queries
-    queries = load_queries('queries.txt')
-
+    #########################################################
+    # INDEXER
+    #########################################################
     term_index, document_length_index = indexer(filename)
     
     # weights = weighting_bm25(term_index,document_length_index,queries)
     document_term_weights, term_document_weights,query_weights, document_query_weights, scores, idf_list = weighting_tf_idf(term_index,document_length_index,queries)
     
+    #########################################################
+    # BENCHMARKING INFORMATION
+    #########################################################
     print('a) Total indexing time:',time.process_time() - time_start,'s')
     current, peak = tracemalloc.get_traced_memory()
     print(f"a) Memory usage for indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
@@ -206,39 +194,21 @@ if __name__ == '__main__':
     print('\nb) Total vocabulary size is: ',len(term_index),'words')
 
     #########################################################
-    # DUMPING INFORMATION TO A FILE
+    # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
+    # dump_to_file(term_index,'term_index.json')
 
-    # print('DUMPING TO FILE log.json')
-    # with open("indexer.json", "w") as write_file:
-    #     json.dump(term_index, write_file, indent=4)
+    # dump_to_file(document_term_weights,'document_term_weights.json')
 
-    # print('DUMPING TO FILE document_term_weights.json')
-    # with open("document_term_weights.json", "w") as write_file:
-    #     json.dump(document_term_weights, write_file, indent=4)
-
-    print('DUMPING TO FILE term_document_weights.json')
-    with open("term_document_weights.json", "w") as write_file:
-        json.dump(term_document_weights, write_file, indent=4)
-
-    # print('DUMPING TO FILE document_length_index.json')
-    # with open("document_length_index.json", "w") as write_file:
-    #     json.dump(document_length_index, write_file, indent=4)
-
-    print('DUMPING TO FILE idf_list.json')
-    with open("idf_list.json", "w") as write_file:
-        json.dump(idf_list, write_file, indent=4)
-
-    # print('DUMPING TO FILE query_weights.json')
-    # with open("query_weights.json", "w") as write_file:
-    #     json.dump(query_weights, write_file, indent=4)
-
-    # print('DUMPING TO FILE document_query_weights.json')
-    # with open("document_query_weights.json", "w") as write_file:
-    #     json.dump(document_query_weights, write_file, indent=4)
-
-    print('DUMPING TO FILE scores.json')
-    with open("scores.json", "w") as write_file:
-        json.dump(scores, write_file, indent=4)
+    dump_to_file(term_document_weights,'term_document_weights.json')
     
+    # dump_to_file(document_length_index,'document_length_index.json')
 
+    dump_to_file(idf_list,'idf_list.json')
+        
+    dump_to_file(query_weights,'query_weights.json')
+
+    # dump_to_file(document_query_weights,'document_query_weights.json')
+
+    dump_to_file(scores,'scores.json')
+    
