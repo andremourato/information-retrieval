@@ -13,6 +13,8 @@ import math
 import json
 import Stemmer
 
+import operator
+
 def load_stop_words(file):
     with open(file)  as f_in:
         return [ _.split()[0] for _ in f_in ]
@@ -20,7 +22,9 @@ def load_stop_words(file):
 def load_queries(file):
     with open(file)  as f_in:
         return [
-            remove_non_alpha(' '.join([word for word in q.split() if len(word) >= 3 and word not in stopwords])) for q in f_in
+            Stemmer.Stemmer('porter').stemWords(\
+                remove_non_alpha(' '.join(\
+                    [word for word in q.split() if len(word) >= 3 and word not in stopwords]))) for q in f_in
         ]
                 
 
@@ -83,39 +87,91 @@ def indexer(filename):
     
     return term_index, document_length_index
 
-def weighting_tf_idf(term_index):
-    weights = {}
-    # for docID in term_index:
-    #     document_length = 
-
+def lnc_calculation(term_index,document_length_index):
+    document_term_weights = {}
+    term_document_weights = {}
+    idf_list = {}
     for docID in term_index:
         for token in term_index[docID]:
-            if docID not in weights:
-                weights[docID] = {}
-            weights[docID][token] = 1 + math.log10(term_index[docID][token])
+            if docID not in document_term_weights:
+                document_term_weights[docID] = {}
+            document_term_weights[docID][token] = 1 + math.log10(term_index[docID][token])
+            if token not in term_document_weights:
+                term_document_weights[token] = {}
+            term_document_weights[token][docID] = 1 + math.log10(term_index[docID][token])
+    
+        norm_factor = 1/math.sqrt(sum([document_term_weights[docID][_]**2 for _ in document_term_weights[docID]]))
+        for token in document_term_weights[docID]:
+            document_term_weights[docID][token] *= norm_factor
+            term_document_weights[token][docID] *= norm_factor
+            # Calculating idf of each term
+            N = len(document_length_index)
+            dft = len(term_document_weights[token])
+            idf_list[token] = math.log10(N/dft)
+    return document_term_weights, term_document_weights, idf_list
 
-        norm_factor = 1/math.sqrt(sum([weights[docID][_]**2 for _ in weights[docID]]))
+def ltc_calculation(term_document_weights,document_term_weights,idf_list,queries):
+    query_document_weights = {}
+    document_query_weights = {}
+    scores = {}
+    for idx,query in enumerate(queries):
+        for token in query:
+            # If the token exists in at least one document
+            for docID in document_term_weights:
+                # Query document
+                if token not in query_document_weights:
+                    query_document_weights[token] = {}
+                # Document Query
+                if docID not in document_query_weights:
+                    document_query_weights[docID] = {}
 
-        for token in weights[docID]:
-            weights[docID][token] *= norm_factor
-    return weights
+                if token in document_term_weights[docID]:
+                    query_document_weights[token][docID] = idf_list[token] * term_document_weights[token][docID]
+                    document_query_weights[docID][token] = idf_list[token] * term_document_weights[token][docID]
+                else:
+                    query_document_weights[token][docID] = 0
+                    document_query_weights[docID][token] = 0
+        # 3 - Score calculation
+        scores[idx] = { docID: sum(v.values()) for docID,v in document_query_weights.items() }
+        scores[idx] = dict(sorted(scores[idx].items(), key=operator.itemgetter(1), reverse=True))
 
-def weighting_bm25(term_index,document_length_index):
-    weights = {}
+    return query_document_weights, document_query_weights, scores
 
-    for docID in term_index:
-        for token in term_index[docID]:
-            if docID not in weights:
-                weights[docID] = {}
-            weights[docID][token] = 1 + math.log10(term_index[docID][token])
+def dump_term_idf_weights_to_file(document_term_weights, term_document_weights, idf_list):
+    with open("index_tf_idf.txt", "w") as write_file:
+        #json.dump(term_document_weights, write_file, indent=4)
+        for (token,idf) in idf_list.items():
+            s = '%s:%f' % (token,idf)
+            for docID in term_document_weights[token]:
+                s += ';%d:%f' % (docID,term_document_weights[token][docID])
+            write_file.write("%s\n" % s)
 
-        norm_factor = 1/math.sqrt(sum([weights[docID][_]**2 for _ in weights[docID]]))
+def weighting_tf_idf(term_index,document_length_index,queries):
+    # 1 - LNC calculation
+    document_term_weights, term_document_weights, idf_list = lnc_calculation(term_index,document_length_index)
 
-        for token in weights[docID]:
-            weights[docID][token] *= norm_factor
-    return weights
+    dump_term_idf_weights_to_file(document_term_weights, term_document_weights, idf_list)
+    # exit(3)
 
-    return weights
+    # 2 - LTC calculation
+    query_weights, document_query_weights, scores = ltc_calculation(term_document_weights,document_term_weights,idf_list,queries)
+    
+    return document_term_weights, term_document_weights, query_weights, document_query_weights, scores, idf_list
+
+# def weighting_bm25(term_index,document_length_index):
+#     weights = {}
+
+#     for docID in term_index:
+#         for token in term_index[docID]:
+#             if docID not in weights:
+#                 weights[docID] = {}
+#             weights[docID][token] = 1 + math.log10(term_index[docID][token])
+
+#         norm_factor = 1/math.sqrt(sum([weights[docID][_]**2 for _ in weights[docID]]))
+
+#         for token in weights[docID]:
+#             weights[docID][token] *= norm_factor
+#     return weights
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -136,16 +192,11 @@ if __name__ == '__main__':
 
     # Loads queries
     queries = load_queries('queries.txt')
-    print(queries)
-    exit(3)
 
     term_index, document_length_index = indexer(filename)
-
-
-    print('DUMPING TO FILE document_length_index.json')
-    with open("document_length_index.json", "w") as write_file:
-        json.dump(document_length_index, write_file, indent=4)
-    weights = weighting_bm25(term_index,document_length_index)
+    
+    # weights = weighting_bm25(term_index,document_length_index,queries)
+    document_term_weights, term_document_weights,query_weights, document_query_weights, scores, idf_list = weighting_tf_idf(term_index,document_length_index,queries)
     
     print('a) Total indexing time:',time.process_time() - time_start,'s')
     current, peak = tracemalloc.get_traced_memory()
@@ -154,11 +205,40 @@ if __name__ == '__main__':
 
     print('\nb) Total vocabulary size is: ',len(term_index),'words')
 
-    print('DUMPING TO FILE log.json')
-    with open("indexer.json", "w") as write_file:
-        json.dump(term_index, write_file, indent=4)
+    #########################################################
+    # DUMPING INFORMATION TO A FILE
+    #########################################################
 
-    print('DUMPING TO FILE weights.json')
-    with open("weights.json", "w") as write_file:
-        json.dump(weights, write_file, indent=4)
+    # print('DUMPING TO FILE log.json')
+    # with open("indexer.json", "w") as write_file:
+    #     json.dump(term_index, write_file, indent=4)
+
+    # print('DUMPING TO FILE document_term_weights.json')
+    # with open("document_term_weights.json", "w") as write_file:
+    #     json.dump(document_term_weights, write_file, indent=4)
+
+    print('DUMPING TO FILE term_document_weights.json')
+    with open("term_document_weights.json", "w") as write_file:
+        json.dump(term_document_weights, write_file, indent=4)
+
+    # print('DUMPING TO FILE document_length_index.json')
+    # with open("document_length_index.json", "w") as write_file:
+    #     json.dump(document_length_index, write_file, indent=4)
+
+    print('DUMPING TO FILE idf_list.json')
+    with open("idf_list.json", "w") as write_file:
+        json.dump(idf_list, write_file, indent=4)
+
+    # print('DUMPING TO FILE query_weights.json')
+    # with open("query_weights.json", "w") as write_file:
+    #     json.dump(query_weights, write_file, indent=4)
+
+    # print('DUMPING TO FILE document_query_weights.json')
+    # with open("document_query_weights.json", "w") as write_file:
+    #     json.dump(document_query_weights, write_file, indent=4)
+
+    print('DUMPING TO FILE scores.json')
+    with open("scores.json", "w") as write_file:
+        json.dump(scores, write_file, indent=4)
+    
 
