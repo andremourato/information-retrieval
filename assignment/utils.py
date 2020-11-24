@@ -26,21 +26,25 @@ def load_queries(file,stopwords):
 
 def load_term_idf_weights():
     term_document_weights = {}
+    document_terms = {}
     idf_list = {}
     with open(INDEXER_OUTPUT_FILE) as f_in:
         for line in f_in.readlines():
             # Processes each line
             tmp = line.strip().split(';')
             # Processes the term and associates its idf
-            term = tmp[0].split(':')
-            idf_list[term[0]] = float(term[1])
+            term,idf = tmp[0].split(':')
+            idf_list[term] = float(idf)
             # Processes the weight of the term in each of the documents
             for doc in tmp[1:]:
                 doc_id, doc_weight = doc.split(':')
-                if term[0] not in term_document_weights:
-                    term_document_weights[term[0]] = {}
-                term_document_weights[term[0]][doc_id] = float(doc_weight)
-    return term_document_weights, idf_list
+                if doc_id not in document_terms:
+                    document_terms[doc_id] = []
+                document_terms[doc_id].append(term)
+                if term not in term_document_weights:
+                    term_document_weights[term] = {}
+                term_document_weights[term][doc_id] = float(doc_weight)
+    return term_document_weights, document_terms, idf_list
 
 def dump_to_file(dic,filename):
     print('DUMPING TO FILE %s' % filename)

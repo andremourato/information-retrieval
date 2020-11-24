@@ -100,7 +100,9 @@ if __name__ == '__main__':
     else:
         filename = sys.argv[1]
     print('Reading dataset from file',filename)
-    print('------------------------------')
+    print('------------------------------------------------------------')
+    print('STARTING INDEXING...')
+    print('------------------------------------------------------------')
 
     # Trace used memory and time for the 
     # indexing process using the improved tokenizer
@@ -108,10 +110,9 @@ if __name__ == '__main__':
     time_start = time.process_time()
 
     #########################################################
-    # LOADING INFORMATION FROM FILE
+    # LOADING INFORMATION FROM A FILE
     #########################################################
     stopwords = load_stop_words('resources/stopwords.txt')
-    queries = load_queries('resources/queries.txt',stopwords)
 
     #########################################################
     # INDEXER
@@ -130,10 +131,10 @@ if __name__ == '__main__':
     #########################################################
     print('Total indexing time:',time.process_time() - time_start,'s')
     current, peak = tracemalloc.get_traced_memory()
-    print(f" Memory usage for indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     tracemalloc.stop()
-
-    print('Total vocabulary size is: ',len(term_index),'words\n')
+    print(f"Memory usage for indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
+    print('Total vocabulary size is: ',len(term_index),'words')
+    print('------------------------------------------------------------')
 
     #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
