@@ -29,11 +29,46 @@ def ltc_calculation(term_document_weights,document_terms,idf_list,queries):
                     query_document_weights[token][docID] = 0
                     document_query_weights[docID][token] = 0
         # 3 - Score calculation
-        scores[idx] = { docID: sum(v.values()) for docID,v in document_query_weights.items() }
-        scores[idx] = dict(sorted(scores[idx].items(), key=operator.itemgetter(1), reverse=True))
+        scores[idx+1] = { docID: sum(v.values()) for docID,v in document_query_weights.items() }
+        scores[idx+1] = dict(sorted(scores[idx+1].items(), key=operator.itemgetter(1), reverse=True))
 
     return query_document_weights, document_query_weights, scores
 
+def calculate_metrics(scores):
+    # results contains tp, fp, fn, tn of each query
+    results = {}
+    relevance = load_query_relevance()
+    for query in scores:
+        results[query] = {
+            10:{
+                'tp': 0,
+                'fp': 0,
+                'fn': 0,
+                'tn': 0,
+            },
+            20:{
+                'tp': 0,
+                'fp': 0,
+                'fn': 0,
+                'tn': 0,
+            },
+            50:{
+                'tp': 0,
+                'fp': 0,
+                'fn': 0,
+                'tn': 0,
+            }
+        }
+        for i,doc_id in enumerate(list(scores[query].keys())):
+            # Skips documents that don't appear in this query in the file
+            if doc_id not in relevance[query]:
+                continue
+            file_relevant = relevance[query][doc_id]
+            results[query][10][calculate_status(True if i < 10 else False,file_relevant)] += 1
+            results[query][20][calculate_status(True if i < 20 else False,file_relevant)] += 1
+            results[query][50][calculate_status(True if i < 50 else False,file_relevant)] += 1
+    return results
+    
 
 def weighting_tf_idf(term_document_weights,document_terms,idf_list,queries):
     # 1 - LTC calculation
@@ -94,6 +129,11 @@ if __name__ == '__main__':
     print('------------------------------------------------------------')
 
     #########################################################
+    # CALCULATING METRICS (precision, recall, f_measure, average_precision, ndcg, latency)
+    #########################################################
+    results = calculate_metrics(scores)
+
+    #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
     dump_to_file(term_document_weights,'ranked_term_document_weights.json')
@@ -101,6 +141,8 @@ if __name__ == '__main__':
     dump_to_file(idf_list,'ranked_idf_list.json')
 
     dump_to_file(scores,'ranked_scores.json')
+    
+    dump_to_file(results,'results.json')
 
     # weights = weighting_bm25(term_index,queries)
     #document_terms, term_document_weights,query_weights, document_query_weights, scores, idf_list = weighting_tf_idf(term_index,document_length_index,queries)

@@ -1,5 +1,10 @@
+
+import operator
+
 a = [1,2,3]
+b = {'a':1,'c':34,'b':0}
 
-print(a[1:])
+print(list(b.keys()))
 
-print(len('abcdefg\n'.strip()))
+for i, item in enumerate(list(b.keys())):
+    print(i,item)

@@ -4,12 +4,28 @@ import os
 
 INDEXER_OUTPUT_FILE = 'outputs/indexer_output.txt'
 DEBUG_DIR = 'debug/'
+QUERIES_RELEVANCE_FILTERED_FILE = 'resources/queries.relevance.filtered.txt'
 
 #########################################################
 # AUXILIAR METHODS
 #########################################################
 def remove_non_alpha(string):
     return ''.join([ c if c.isalpha() else ' ' for c in string.lower()]).split()
+
+def calculate_status(engine_relevance,file_relevance):
+    # If the engine considers the document RELEVANT
+    if engine_relevance: 
+        # If the input file considers the document RELEVANT
+        if file_relevance > 0:# FILE RELEVANT
+            return 'tp'
+        else: # FILE NOT RELEVANT
+            return 'fp'
+    else: # ENGINE NOT RELEVANT
+        # If the input file considers the document RELEVANT
+        if file_relevance > 0:# FILE RELEVANT
+            return 'fn'
+        else: # FILE NOT RELEVANT
+            return 'tn'
 
 #########################################################
 # FILE METHODS
@@ -25,6 +41,18 @@ def load_queries(file,stopwords):
                 remove_non_alpha(' '.join(\
                     [word for word in q.split() if len(word) >= 3 and word not in stopwords]))) for q in f_in
         ]
+
+def load_query_relevance():
+    relevance = {}
+    with open(QUERIES_RELEVANCE_FILTERED_FILE)  as f_in:
+        for line in f_in.readlines():
+            query,doc_id,rel = line.split()
+            query = int(query)
+            rel = int(rel)
+            if query not in relevance:
+                relevance[query] = {}
+            relevance[query][doc_id] = rel
+    return relevance
 
 def load_term_idf_weights():
     term_document_weights = {}
