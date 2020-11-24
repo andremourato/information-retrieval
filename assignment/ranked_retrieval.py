@@ -84,7 +84,6 @@ if __name__ == '__main__':
 
     query_document_weights, document_query_weights, scores = weighting_tf_idf(term_document_weights,document_terms,idf_list,queries)
 
-
     #########################################################
     # BENCHMARKING INFORMATION
     #########################################################

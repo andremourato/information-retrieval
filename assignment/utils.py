@@ -1,7 +1,9 @@
 import Stemmer
 import json
+import os
 
 INDEXER_OUTPUT_FILE = 'outputs/indexer_output.txt'
+DEBUG_DIR = 'debug/'
 
 #########################################################
 # AUXILIAR METHODS
@@ -47,8 +49,10 @@ def load_term_idf_weights():
     return term_document_weights, document_terms, idf_list
 
 def dump_to_file(dic,filename):
+    if not os.path.exists(DEBUG_DIR):
+        os.mkdir(DEBUG_DIR, 0o775)
     print('DUMPING TO FILE %s' % filename)
-    with open("debug/%s" % filename, "w") as write_file:
+    with open("%s%s" % (DEBUG_DIR,filename), "w") as write_file:
         json.dump(dic, write_file, indent=4)
     
 def dump_term_idf_weights(term_document_weights, idf_list):
