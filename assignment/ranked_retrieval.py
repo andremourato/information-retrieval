@@ -144,5 +144,6 @@ if __name__ == '__main__':
     
     dump_to_file(results,'results.json')
 
+    dump_to_file(document_query_weights, 'document_query_weights.json')
     # weights = weighting_bm25(term_index,queries)
     #document_terms, term_document_weights,query_weights, document_query_weights, scores, idf_list = weighting_tf_idf(term_index,document_length_index,queries)
