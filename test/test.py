@@ -1,3 +1,5 @@
-document_index = { "a" : 100, "b" : 4, "c" : 10 }
+a = [1,2,3]
 
-print(sorted(document_index, key = lambda key: document_index[key]))
+print(a[1:])
+
+print(len('abcdefg\n'.strip()))
