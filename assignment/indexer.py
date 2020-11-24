@@ -94,6 +94,16 @@ def lnc_calculation(term_index,document_length_index):
             idf_list[token] = math.log10(N/dft)
     return document_term_weights, term_document_weights, idf_list
 
+def bmc_pre_calculation(term_index):
+    bmc_data = {}
+    for docID in term_index:
+        for token in term_index[docID]:
+            if token not in bmc_data:
+                bmc_data[token] = {}
+            bmc_data[token][docID] = term_index[docID][token]
+    
+    return bmc_data
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         filename = 'datasets/metadata_2020-03-27.csv'
@@ -125,7 +135,10 @@ if __name__ == '__main__':
 
     # 3 - Dumping to file
     dump_term_idf_weights(term_document_weights, idf_list)
-    
+
+    #BMC#
+    bmc_data = bmc_pre_calculation(term_index)
+    dump_bmc(bmc_data, idf_list)
     #########################################################
     # BENCHMARKING INFORMATION
     #########################################################
@@ -145,7 +158,7 @@ if __name__ == '__main__':
 
     dump_to_file(term_document_weights,'term_document_weights.json')
     
-    # dump_to_file(document_length_index,'document_length_index.json')
+    dump_to_file(document_length_index,'document_length_index.json')
 
     dump_to_file(idf_list,'idf_list.json')
         
