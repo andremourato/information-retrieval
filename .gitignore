@@ -62,3 +62,9 @@ typings/
 
 # nuxt.js build output
 .nuxt
+
+#debug files
+debug/
+
+# PYTHON
+__pycache__/
