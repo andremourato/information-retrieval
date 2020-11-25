@@ -56,14 +56,112 @@ def calculate_metrics(scores):
                 'tn': 0,
             }
         }
-        for i,doc_id in enumerate(list(scores[query].keys())):
+        #number of relevant documents at every step
+        top10_num_relevant = 0
+        top20_num_relevant = 0
+        top50_num_relevant = 0
+
+        # AVERAGES
+        results[query][10]['avg_precision'] = 0
+        results[query][20]['avg_precision'] = 0
+        results[query][50]['avg_precision'] = 0
+
+        #temporary precision
+        top10_temp_precision = 0
+        top20_temp_precision = 0
+        top50_temp_precision = 0
+
+        docs = list(scores[query].keys())
+        for i,doc_id in enumerate(docs):
             # Skips documents that don't appear in this query in the file
             if doc_id not in relevance[query]:
                 continue
+
+            # Can be 0, 1 or 2
             file_relevant = relevance[query][doc_id]
-            results[query][10][calculate_status(True if i < 10 else False,file_relevant)] += 1
-            results[query][20][calculate_status(True if i < 20 else False,file_relevant)] += 1
-            results[query][50][calculate_status(True if i < 50 else False,file_relevant)] += 1
+            top10_state = calculate_status(True if i < 10 else False,file_relevant)
+            top20_state = calculate_status(True if i < 20 else False,file_relevant)
+            top50_state = calculate_status(True if i < 50 else False,file_relevant)
+            
+            # Calculates average precision
+            if i < 10:
+                top10_num_relevant += 1
+            if i < 20:
+                top20_num_relevant += 1
+            if i < 50:
+                top50_num_relevant += 1
+
+            top10_temp_precision = top10_num_relevant / (i+1)
+            top20_temp_precision = top20_num_relevant / (i+1)
+            top50_temp_precision = top50_num_relevant / (i+1)
+
+            if i < 10:
+                results[query][10]['avg_precision'] += top10_num_relevant / (i+1)
+            if i < 20:
+                results[query][20]['avg_precision'] += top20_num_relevant / (i+1)
+            if i < 50:
+                results[query][50]['avg_precision'] += top50_num_relevant / (i+1)
+
+            results[query][10][top10_state] += 1
+            results[query][20][top20_state] += 1
+            results[query][50][top50_state] += 1
+            
+        # 1 - PRECISION | P = tp/(tp + fp)
+        top10_den = results[query][10]['tp'] + results[query][10]['fp']
+        top20_den = results[query][20]['tp'] + results[query][20]['fp']
+        top50_den = results[query][50]['tp'] + results[query][50]['fp']
+        if top10_den != 0:
+            results[query][10]['precision'] = results[query][10]['tp'] / top10_den
+        else:
+            results[query][10]['precision'] = 0
+        if top20_den != 0:
+            results[query][20]['precision'] = results[query][20]['tp'] / top20_den
+        else:
+            results[query][20]['precision'] = 0
+        if top50_den != 0:
+            results[query][50]['precision'] = results[query][50]['tp'] / top50_den
+        else:
+            results[query][50]['precision'] = 0
+        
+        # 2 - RECALL | R = tp/(tp + fn)
+        top10_den = results[query][10]['tp'] + results[query][10]['fn']
+        top20_den = results[query][20]['tp'] + results[query][20]['fn']
+        top50_den = results[query][50]['tp'] + results[query][50]['fn']
+        if top10_den != 0:
+            results[query][10]['recall'] = results[query][10]['tp'] / top10_den
+        else:
+            results[query][10]['recall'] = 0
+        if top20_den != 0:
+            results[query][20]['recall'] = results[query][20]['tp'] / top20_den
+        else:
+            results[query][20]['recall'] = 0
+        if top50_den != 0:
+            results[query][50]['recall'] = results[query][50]['tp'] / top50_den
+        else:
+            results[query][50]['recall'] = 0
+
+        # 3 - F MEASURE | F = 2RP/(R+P)
+        top10_den = results[query][10]['recall'] + results[query][10]['precision']
+        top20_den = results[query][20]['recall'] + results[query][20]['precision']
+        top50_den = results[query][50]['recall'] + results[query][50]['precision']
+        if top10_den != 0:
+            results[query][10]['fmeasure'] = 2 * results[query][10]['recall'] * results[query][10]['precision'] / top10_den
+        else:
+            results[query][10]['fmeasure'] = 0
+        if top20_den != 0:
+            results[query][20]['fmeasure'] = 2 * results[query][20]['recall'] * results[query][20]['precision'] / top20_den
+        else:
+            results[query][20]['fmeasure'] = 0
+        if top50_den != 0:
+            results[query][50]['fmeasure'] = 2 * results[query][50]['recall'] * results[query][50]['precision'] / top50_den
+        else:
+            results[query][50]['fmeasure'] = 0
+        
+        # 4 - Average Precision
+        results[query][10]['avg_precision'] = results[query][10]['avg_precision'] / len(docs)
+        results[query][20]['avg_precision'] = results[query][20]['avg_precision'] / len(docs)
+        results[query][50]['avg_precision'] = results[query][50]['avg_precision'] / len(docs)
+        
     return results
 
 #########################################################
