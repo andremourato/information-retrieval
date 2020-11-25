@@ -18,8 +18,8 @@ def bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, que
     weights = {}
     scores = {}
     for idx,query in enumerate(queries):
-        if idx not in scores:
-            scores[idx] = {} 
+        if idx+1 not in scores:
+            scores[idx+1] = {} 
 
         for token in query:
             if token not in weights:
@@ -30,11 +30,11 @@ def bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, que
                     second = (k+1) * bmc_data[token][docID]
                     third = 1 / (( k*((1-b) + (b*document_length_index[docID] / avdl)) + bmc_data[token][docID]))
                     weights[token][docID] = first*second*third 
-                    if docID not in scores[idx]:
-                        scores[idx][docID] = 0
-                    scores[idx][docID] += first*second*third 
+                    if docID not in scores[idx+1]:
+                        scores[idx+1][docID] = 0
+                    scores[idx+1][docID] += first*second*third 
 
-        scores[idx] = dict(sorted(scores[idx].items(), key=operator.itemgetter(1), reverse=True))
+        scores[idx+1] = dict(sorted(scores[idx+1].items(), key=operator.itemgetter(1), reverse=True))
 
     return weights, scores
 
@@ -83,8 +83,15 @@ if __name__ == '__main__':
     print('------------------------------------------------------------')
 
     #########################################################
+    # CALCULATING METRICS (precision, recall, f_measure, average_precision, ndcg, latency)
+    #########################################################
+    results = calculate_metrics(scores)
+
+    #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
 
     dump_to_file(bmc_weights, 'bmc_weights.json')
     dump_to_file(scores, 'bmc_scores.json')
+
+    dump_to_file(results, 'bmc_results.json')

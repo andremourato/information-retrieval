@@ -32,62 +32,11 @@ def ltc_calculation(term_document_weights,document_terms,idf_list,queries):
         scores[idx+1] = { docID: sum(v.values()) for docID,v in document_query_weights.items() }
         scores[idx+1] = dict(sorted(scores[idx+1].items(), key=operator.itemgetter(1), reverse=True))
 
-    return query_document_weights, document_query_weights, scores
-
-def calculate_metrics(scores):
-    # results contains tp, fp, fn, tn of each query
-    results = {}
-    relevance = load_query_relevance()
-    for query in scores:
-        results[query] = {
-            10:{
-                'tp': 0,
-                'fp': 0,
-                'fn': 0,
-                'tn': 0,
-            },
-            20:{
-                'tp': 0,
-                'fp': 0,
-                'fn': 0,
-                'tn': 0,
-            },
-            50:{
-                'tp': 0,
-                'fp': 0,
-                'fn': 0,
-                'tn': 0,
-            }
-        }
-        for i,doc_id in enumerate(list(scores[query].keys())):
-            # Skips documents that don't appear in this query in the file
-            if doc_id not in relevance[query]:
-                continue
-            file_relevant = relevance[query][doc_id]
-            results[query][10][calculate_status(True if i < 10 else False,file_relevant)] += 1
-            results[query][20][calculate_status(True if i < 20 else False,file_relevant)] += 1
-            results[query][50][calculate_status(True if i < 50 else False,file_relevant)] += 1
-    return results
-    
+    return query_document_weights, document_query_weights, scores    
 
 def weighting_tf_idf(term_document_weights,document_terms,idf_list,queries):
     # 1 - LTC calculation
     return ltc_calculation(term_document_weights,document_terms,idf_list,queries)
-
-# def weighting_bm25(term_index,document_length_index):
-#     weights = {}
-
-#     for docID in term_index:
-#         for token in term_index[docID]:
-#             if docID not in weights:
-#                 weights[docID] = {}
-#             weights[docID][token] = 1 + math.log10(term_index[docID][token])
-
-#         norm_factor = 1/math.sqrt(sum([weights[docID][_]**2 for _ in weights[docID]]))
-
-#         for token in weights[docID]:
-#             weights[docID][token] *= norm_factor
-#     return weights
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -145,5 +94,3 @@ if __name__ == '__main__':
     dump_to_file(results,'results.json')
 
     dump_to_file(document_query_weights, 'document_query_weights.json')
-    # weights = weighting_bm25(term_index,queries)
-    #document_terms, term_document_weights,query_weights, document_query_weights, scores, idf_list = weighting_tf_idf(term_index,document_length_index,queries)

@@ -29,6 +29,44 @@ def calculate_status(engine_relevance,file_relevance):
             return 'tn'
 
 #########################################################
+# METRIC CALCULATION
+#########################################################
+def calculate_metrics(scores):
+    # results contains tp, fp, fn, tn of each query
+    results = {}
+    relevance = load_query_relevance()
+    for query in scores:
+        results[query] = {
+            10:{
+                'tp': 0,
+                'fp': 0,
+                'fn': 0,
+                'tn': 0,
+            },
+            20:{
+                'tp': 0,
+                'fp': 0,
+                'fn': 0,
+                'tn': 0,
+            },
+            50:{
+                'tp': 0,
+                'fp': 0,
+                'fn': 0,
+                'tn': 0,
+            }
+        }
+        for i,doc_id in enumerate(list(scores[query].keys())):
+            # Skips documents that don't appear in this query in the file
+            if doc_id not in relevance[query]:
+                continue
+            file_relevant = relevance[query][doc_id]
+            results[query][10][calculate_status(True if i < 10 else False,file_relevant)] += 1
+            results[query][20][calculate_status(True if i < 20 else False,file_relevant)] += 1
+            results[query][50][calculate_status(True if i < 50 else False,file_relevant)] += 1
+    return results
+
+#########################################################
 # FILE METHODS
 #########################################################
 def load_stop_words(file):
