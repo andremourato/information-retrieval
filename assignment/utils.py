@@ -1,6 +1,8 @@
 import Stemmer
 import json
 import os
+import math
+import operator
 
 INDEXER_OUTPUT_FILE = 'outputs/indexer_output.txt'
 BMC_OUTPUT_FILE = 'outputs/bmc_data.txt'
@@ -74,17 +76,56 @@ def calculate_metrics(scores):
         top20_temp_precision = 0
         top50_temp_precision = 0
 
+        # DCG - Discounted Cumulative Gain
+        ideal_dcg = {}
+        ideal_dcg = {
+            10: 0,
+            20: 0,
+            50: 0
+        }
+        idx = 1
+        for doc_id in relevance[query]:
+            if idx == 1:
+                ideal_dcg[10] += relevance[query][doc_id]
+                ideal_dcg[20] += relevance[query][doc_id]
+                ideal_dcg[50] += relevance[query][doc_id]
+            else:
+                if idx <= 10:
+                    ideal_dcg[10] += relevance[query][doc_id] / math.log2(idx)
+                if idx <= 20:
+                    ideal_dcg[20] += relevance[query][doc_id] / math.log2(idx)
+                if idx <= 50:
+                    ideal_dcg[50] += relevance[query][doc_id] / math.log2(idx)
+            idx += 1
+        
+        dcg10 = 0
+        dcg20 = 0
+        dcg50 = 0
+
         docs = list(scores[query].keys())
         for i,doc_id in enumerate(docs):
-            # Skips documents that don't appear in this query in the file
+            # Documents that don't appear in this query in the file are NOT RELEVANT
+            # Relevance can be 0, 1 or 2
             if doc_id not in relevance[query]:
-                continue
+                file_relevant = 0
+            else:
+                file_relevant = relevance[query][doc_id]
+            is_top10 = False
+            is_top20 = False
+            is_top50 = False
+            if i < 10:
+                is_top10 = True
+                dcg10 += file_relevant if i == 0 else file_relevant/math.log2(i+1)
+            if i < 20:
+                is_top20 = True
+                dcg20 += file_relevant if i == 0 else file_relevant/math.log2(i+1)
+            if i < 50:
+                is_top50 = True
+                dcg50 += file_relevant if i == 0 else file_relevant/math.log2(i+1)
 
-            # Can be 0, 1 or 2
-            file_relevant = relevance[query][doc_id]
-            top10_state = calculate_status(True if i < 10 else False,file_relevant)
-            top20_state = calculate_status(True if i < 20 else False,file_relevant)
-            top50_state = calculate_status(True if i < 50 else False,file_relevant)
+            top10_state = calculate_status(is_top10,file_relevant)
+            top20_state = calculate_status(is_top20,file_relevant)
+            top50_state = calculate_status(is_top50,file_relevant)
             
             # Calculates average precision
             if i < 10:
@@ -168,11 +209,23 @@ def calculate_metrics(scores):
         mean_avg_precision10 += results[query][10]['avg_precision']
         mean_avg_precision20 += results[query][20]['avg_precision']
         mean_avg_precision50 += results[query][50]['avg_precision']
-        print(query)
-        print(results[query][10]['avg_precision'])
-        print(results[query][20]['avg_precision'])
-        print(results[query][50]['avg_precision'])
-        print('\n')
+        
+        # 5 - NDCG
+        # Top 10
+        if ideal_dcg[10] != 0:
+            results[query][10]['dcg'] = dcg10 / ideal_dcg[10]
+        else:
+            results[query][10]['dcg'] = 0
+        # Top 20
+        if ideal_dcg[20] != 0:
+            results[query][20]['dcg'] = dcg20 / ideal_dcg[20]
+        else:
+            results[query][20]['dcg'] = 0
+        # Top 50
+        if ideal_dcg[50] != 0:
+            results[query][50]['dcg'] = dcg50 / ideal_dcg[50]
+        else:
+            results[query][50]['dcg'] = 0
     
     mean_avg_precision10 = mean_avg_precision10 / len(results)
     mean_avg_precision20 = mean_avg_precision20 / len(results)
@@ -209,6 +262,9 @@ def load_query_relevance():
             if query not in relevance:
                 relevance[query] = {}
             relevance[query][doc_id] = rel
+        for query in relevance:
+            relevance[query] = dict(sorted(relevance[query].items(), key=operator.itemgetter(1), reverse=True))
+        dump_to_file(relevance,'relevance_sorted.json')
     return relevance
 
 def load_term_idf_weights():

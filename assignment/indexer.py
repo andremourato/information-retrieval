@@ -130,15 +130,14 @@ if __name__ == '__main__':
     # 1 - Indexing
     term_index, document_length_index = indexer(filename)
     
-    # 2 - LNC calculation
+    # 2 - LNC 
     document_term_weights, term_document_weights, idf_list = lnc_calculation(term_index,document_length_index)
-
-    # 3 - Dumping to file
     dump_term_idf_weights(term_document_weights, idf_list)
 
-    #BMC#
+    # 3 - BMC
     bmc_data = bmc_pre_calculation(term_index)
     dump_bmc(bmc_data, idf_list)
+
     #########################################################
     # BENCHMARKING INFORMATION
     #########################################################
