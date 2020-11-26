@@ -34,7 +34,10 @@ def calculate_status(engine_relevance,file_relevance):
 def calculate_metrics(scores):
     # results contains tp, fp, fn, tn of each query
     results = {}
-    relevance = load_query_relevance()
+    relevance = load_query_relevance()        
+    mean_avg_precision10 = 0
+    mean_avg_precision20 = 0
+    mean_avg_precision50 = 0
     for query in scores:
         results[query] = {
             10:{
@@ -161,7 +164,24 @@ def calculate_metrics(scores):
         results[query][10]['avg_precision'] = results[query][10]['avg_precision'] / len(docs)
         results[query][20]['avg_precision'] = results[query][20]['avg_precision'] / len(docs)
         results[query][50]['avg_precision'] = results[query][50]['avg_precision'] / len(docs)
-        
+
+        mean_avg_precision10 += results[query][10]['avg_precision']
+        mean_avg_precision20 += results[query][20]['avg_precision']
+        mean_avg_precision50 += results[query][50]['avg_precision']
+        print(query)
+        print(results[query][10]['avg_precision'])
+        print(results[query][20]['avg_precision'])
+        print(results[query][50]['avg_precision'])
+        print('\n')
+    
+    mean_avg_precision10 = mean_avg_precision10 / len(results)
+    mean_avg_precision20 = mean_avg_precision20 / len(results)
+    mean_avg_precision50 = mean_avg_precision50 / len(results)
+    print('MEAN AVG PRECISION')
+    print(mean_avg_precision10)
+    print(mean_avg_precision20)
+    print(mean_avg_precision50)
+    print('\n')
     return results
 
 #########################################################

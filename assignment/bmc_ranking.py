@@ -11,7 +11,6 @@ from utils import *
 def bm25_avdl(document_length_index):
 
     avdl = sum(v for v in document_length_index.values())
-
     return avdl / len(document_length_index)
 
 def bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, queries):
@@ -26,7 +25,7 @@ def bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, que
                 weights[token] = {} 
 
                 for docID in bmc_data[token]:
-                    first = math.log10(N/idf_list[token])
+                    first = idf_list[token]
                     second = (k+1) * bmc_data[token][docID]
                     third = 1 / (( k*((1-b) + (b*document_length_index[docID] / avdl)) + bmc_data[token][docID]))
                     weights[token][docID] = first*second*third 
@@ -68,7 +67,6 @@ if __name__ == '__main__':
     N = len(document_length_index)
     k = 1.2
     b = 0.75
-    
     bmc_weights = {}
     bmc_weights, scores = bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, queries)
 
@@ -90,8 +88,5 @@ if __name__ == '__main__':
     #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
-
     dump_to_file(bmc_weights, 'bmc_weights.json')
     dump_to_file(scores, 'bmc_scores.json')
-
-    dump_to_file(results, 'bmc_results.json')
