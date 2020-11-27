@@ -1,3 +1,9 @@
+###############################
+#   Authors             
+###############################
+#   André Mourato nmec 84745
+#   Gonçalo Marques nmec 80327
+###############################
 import Stemmer
 import json
 import os
@@ -6,17 +12,42 @@ import operator
 import statistics 
 
 QUERIES_RELEVANCE_FILTERED_FILE = 'resources/queries.relevance.filtered.txt'
-INDEXER_OUTPUT_DIR = 'outputs/'
+OUTPUT_DIR = 'outputs/'
 DEBUG_DIR = 'debug/'
-VECTOR_SPACE_RANKING_RESULT_FILE = 'outputs/'
 
 #########################################################
 # AUXILIAR METHODS
 #########################################################
 def remove_non_alpha(string):
+    '''Removes all non-alpha characters from a string and returns a list of the individual extracted tokens
+    ----------
+    string : string
+        The input string to parse
+        Example: 'covid-19abc'
+            
+        
+    Returns
+    -------
+    tokens : list
+        The list of extracted tokens after removing all non-alpha characters
+        Example: remove_non_alpha('covid-19abc') would return ['covid', 'abc']
+    '''
     return ''.join([ c if c.isalpha() else ' ' for c in string.lower()]).split()
 
 def calculate_status(engine_relevance,file_relevance):
+    '''Checks if a document is a true positive, false positive, true negative or a false negative
+    ----------
+    engine_relevance : boolean
+        True if the search engine considers the document relevant and False otherwise
+
+    file_relevance : boolean
+        True if the document is considered relevant by the gold standard and False otherwise
+        
+    Returns
+    -------
+    status : string
+        The status of the document. Can be one of the following values: 'tp', fp', 'fn', 'tn'
+    '''
     # If the engine considers the document RELEVANT
     if engine_relevance: 
         # If the input file considers the document RELEVANT
@@ -35,11 +66,67 @@ def calculate_status(engine_relevance,file_relevance):
 # METRIC CALCULATION
 #########################################################
 def calculate_metrics(scores, latencies, time_elapsed):
+    '''Receives the document rankings for each query in the score dictionary, the latency of each query and total time elapsed for the ranking process.
+       Compares the highest scoring documents with the list of relevant documents for each query to calculate evaluation metrics such as precision,
+       f measure and normalized discounted cumulative gain.
+       Finally calculates de mean values of each parameter for each query.
+    ----------
+    scores : dict
+        Dictionary of dictionaries that contains the query as the key 
+        and a dictionary with the docIDs in which the query terms exist and corresponding score, as the value.
+
+    latencies : dict
+        Dictionary that contains the query as the key and the latency in seconds as the value.
+
+    time_elapsed : float
+        Total time count used by the scoring process.
+        
+    Returns
+    -------
+    results : dict
+        Dictionary of dictionaries containing the calculated metrics for each query
+        for diferent result retrieval windows
+        Example: {
+            "1": {
+                "10": {
+                    "tp": 3,
+                    "fp": 5,
+                    "fn": 207,
+                    "tn": 245,
+                    "avg_precision": 0.0007384585289514867,
+                    "precision": 0.375,
+                    "recall": 0.014285714285714285,
+                    "fmeasure": 0.027522935779816515
+                }
+            }    
+        }
+
+    query_throughput : float
+        Number of queries processed per second
+
+    median_latency : float
+        Median of the amount of time one must after issuing a query 
+        before receiving a response
+
+    means : dict
+        Dictionary containing the mean value for all queries of each metric
+        Example: {
+            "precision10": 0.384,
+            "precision20": 0.321,
+            "precision50": 0.22240000000000001,
+            "recall10": 0.07991754131744881,
+            "recall20": 0.13456002463048145,
+            "recall50": 0.20650537292465992
+        }
+
+    '''
     # Results contains tp, fp, fn, tn of each query and other metrics
     results = {}
     means = {}
     relevance = load_query_relevance()        
     for query in scores:
+        # Used to count the number of tp, fp, fn and tn
+        #  in the top10, top20 and top50 of each query
         results[query] = {
             10:{
                 'tp': 0,
@@ -60,7 +147,7 @@ def calculate_metrics(scores, latencies, time_elapsed):
                 'tn': 0,
             }
         }
-        #number of relevant documents at every step
+        # Number of relevant documents at every step
         top10_num_relevant = 0
         top20_num_relevant = 0
         top50_num_relevant = 0
@@ -77,6 +164,7 @@ def calculate_metrics(scores, latencies, time_elapsed):
             50: 0
         }
         idx = 1
+        # Calculates the ideal DCG
         for doc_id in relevance[query]:
             if idx == 1:
                 ideal_dcg[10] += relevance[query][doc_id]
@@ -90,7 +178,7 @@ def calculate_metrics(scores, latencies, time_elapsed):
                 if idx <= 50:
                     ideal_dcg[50] += relevance[query][doc_id] / math.log2(idx)
             idx += 1
-        
+        # Used to store the real DCG
         dcg10 = 0
         dcg20 = 0
         dcg50 = 0
@@ -98,7 +186,7 @@ def calculate_metrics(scores, latencies, time_elapsed):
         docs = list(scores[query].keys())
         for i,doc_id in enumerate(docs):
             # Documents that don't appear in this query in the file are NOT RELEVANT
-            # Relevance can be 0, 1 or 2
+            # file_relevant can be 0, 1 or 2 according to the relevance of a given document and for a given query
             if doc_id not in relevance[query]:
                 file_relevant = 0
             else:
@@ -222,6 +310,7 @@ def calculate_metrics(scores, latencies, time_elapsed):
             results[query][50]['avg_precision'] = results[query][50]['avg_precision'] / top50_num_relevant
         else:
             results[query][50]['avg_precision'] = 0
+
         ##################################
         # 5 - NDCG
         ##################################
@@ -276,10 +365,37 @@ def calculate_metrics(scores, latencies, time_elapsed):
 # FILE METHODS
 #########################################################
 def load_stop_words(file):
+    '''Loads the list of stop words from a file
+    ----------
+    file : string
+        The file that contains the stop words, separated by the newline character            
+        
+    Returns
+    -------
+    stopwords : list
+        The list of stopwords
+    '''
     with open(file)  as f_in:
         return [ _.split()[0] for _ in f_in ]
 
 def load_queries(file,stopwords):
+    '''Loads the list of queries from a file and tokenizes each term
+    ----------
+    file : string
+        The file that contains the stop words, separated by the newline character   
+        
+    stopwords : list
+        The list of stopwords          
+        
+    Returns
+    -------
+    queries : list
+        List of queries, in which each element is a list of the tokens of each query
+        Example: [
+            ['coronavirus', 'origin'],
+            ['coronavirus', 'immunity']
+        ]
+    '''
     with open(file)  as f_in:
         return [
             Stemmer.Stemmer('porter').stemWords(\
@@ -288,6 +404,24 @@ def load_queries(file,stopwords):
         ]
 
 def load_query_relevance():
+    '''Loads the list of queries from a file and tokenizes each term
+    ----------
+        
+    Returns
+    -------
+    relevances : dict
+        Dictionary that associates the relevance of each document for a given query, 
+        according to the gold standard
+        Example: 
+        {
+            "1": {
+                "010vptx3": 2,
+                "0be4wta5": 2,
+                "1abp6oom": 1,
+                "1bvsn9e8": 0
+            }
+        }
+    '''
     relevance = {}
     with open(QUERIES_RELEVANCE_FILTERED_FILE)  as f_in:
         for line in f_in.readlines():
@@ -299,14 +433,29 @@ def load_query_relevance():
             relevance[query][doc_id] = rel
         for query in relevance:
             relevance[query] = dict(sorted(relevance[query].items(), key=operator.itemgetter(1), reverse=True))
-        dump_to_file(relevance,'relevance_sorted.json')
     return relevance
 
 def load_weights(filename):
+    '''Loads the list of queries from a file and tokenizes each term
+    ----------
+    filename : string
+        The file that contains the weights to be read
+
+    Returns
+    -------
+    term_document_weights : dict
+        Dictionary that contains the token as the key and the number of occurences as the value.
+        
+    document_terms : dict
+        Dictionary that contains the docID as the key and the list of terms contained in the document as the value.
+
+    idf_list : dict
+        Dictionary that contains the token as the key and the idf as the value.
+    '''
     term_document_weights = {}
     document_terms = {}
     idf_list = {}
-    with open("%s%s" % (INDEXER_OUTPUT_DIR,filename)) as f_in:
+    with open("%s%s" % (OUTPUT_DIR,filename)) as f_in:
         for line in f_in.readlines():
             # Processes each line
             tmp = line.strip().split(';')
@@ -325,6 +474,14 @@ def load_weights(filename):
     return term_document_weights, document_terms, idf_list
 
 def dump_to_file(dic,filename):
+    '''Writes a dictionary to a file in the JSON format
+    ----------
+    dic : dict
+        Any dictionary
+
+    filename : string
+        The file to where the dict should be written
+    '''
     if not os.path.exists(DEBUG_DIR):
         os.mkdir(DEBUG_DIR, 0o775)
     print('DUMPING TO FILE %s' % filename)
@@ -332,7 +489,20 @@ def dump_to_file(dic,filename):
         json.dump(dic, write_file, indent=4)
     
 def dump_weights(term_document, idf_list, filename):
-    with open("%s%s" % (INDEXER_OUTPUT_DIR,filename), "w") as write_file:
+    '''Writes the term idfs and weights to a file
+    ----------
+    term_document : dict
+        Dictionary that contains the token as the key and the number of occurences as the value.
+
+    idf_list : dict
+        Dictionary that contains the token as the key and the idf as the value.
+
+    filename : string
+        The file to where the dict should be written
+    '''
+    if not os.path.exists(OUTPUT_DIR):
+        os.mkdir(OUTPUT_DIR, 0o775)
+    with open("%s%s" % (OUTPUT_DIR,filename), "w") as write_file:
         for (token,idf) in idf_list.items():
             s = '%s:%.15f' % (token,idf)
             for docID in term_document[token]:
@@ -340,7 +510,30 @@ def dump_weights(term_document, idf_list, filename):
             write_file.write("%s\n" % s)
 
 def dump_results(file_out, results, query_throughput, median_latency, means, latencies):
-    with open("%s%s" % (VECTOR_SPACE_RANKING_RESULT_FILE,file_out), "w") as write_file:
+    '''Writes the results to a file
+    ----------
+    file_out : string
+        The file to where the results should be written
+        
+    results : dict
+        Dictionary of dictionaries containing the calculated metrics for each query
+        for diferent result retrieval windows
+    
+    query_throughput : float
+        Number of queries processed per second
+
+    median_latency : float
+        Median of the amount of time one must after issuing a query 
+        before receiving a response
+
+    means : dict
+        Dictionary containing the mean value for all queries of each metric
+
+    latencies : dict
+        Dictionary that contains the query as the key and the latency in seconds as the value.
+
+    '''
+    with open("%s%s" % (OUTPUT_DIR,file_out), "w") as write_file:
         write_file.write('query;precision10;precision20;precision50;recall10;recall20;recall50;fmeasure10;fmeasure20;fmeasure50;avgprecision10;avgprecision20;avgprecision50;ndcg10;ndcg20;ndcg50;latency\n')
         idx = 1
         for query in results:
@@ -375,7 +568,7 @@ def dump_results(file_out, results, query_throughput, median_latency, means, lat
             write_file.write(s)
         # Writes the last line with the mean values of each metric (and writes the median of the latencies)
         write_file.write(
-            'mean;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f' % 
+            'mean;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f' % 
             (means['precision10'],
             means['precision20'],
             means['precision50'],
@@ -391,4 +584,5 @@ def dump_results(file_out, results, query_throughput, median_latency, means, lat
             means['ndcg10'],
             means['ndcg20'],
             means['ndcg50'],
-            median_latency))
+            median_latency,
+            query_throughput))

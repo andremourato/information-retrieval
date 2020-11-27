@@ -1,3 +1,9 @@
+###############################
+#   Authors             
+###############################
+#   André Mourato nmec 84745
+#   Gonçalo Marques nmec 80327
+###############################
 # Benchmarking
 import time
 import tracemalloc
@@ -9,6 +15,44 @@ import math
 from utils import *
 
 def bm25_scoring(term_document_weights, document_terms, queries):
+    '''Calculates bm25 scores for each query and returns a dict with each queries highest ranking documents, in descending order
+    ----------
+    term_document_weights : dict
+        Dictionary that contains the token as the key and the number of occurences as the value.
+
+    document_terms : dict
+        Dictionary that contains the docID as the key and the list of terms contained in the document as the value.
+
+    queries : list
+        List of queries, in which each element is a list of the tokens of each query
+        Example: [
+            ['coronavirus', 'origin'],
+            ['coronavirus', 'immunity']
+        ]
+        
+    Returns
+    -------
+    scores : dict
+        Dictionary of dictionaries that contains the query as the key 
+        and a dictionary with the docIDs in which the query terms exist and corresponding bmc score, as the value.
+        Example :{
+            "1": {
+                "ne5r4d4b": 3.418630282579524,
+                "mv3crcsh": 3.382283292874245,
+                "es7q6c90": 3.366348323271933,
+                "zy8qjaai": 3.31746302919451,
+            }
+        }
+
+    latencies : dict
+        Dictionary that contains the query as the key and the latency in seconds as the value.
+        Example :{
+            "1": 0.1641572300000007,
+            "2": 0.2601559629999999,
+            "3": 0.1559371460000003,
+            "4": 0.17825443500000038
+        }
+    '''
     scores = {}
     latencies = {}
     idx = 1
@@ -28,24 +72,23 @@ def bm25_scoring(term_document_weights, document_terms, queries):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        filename = 'outputs/indexer_output.txt'
+        filename = 'bmc_weights.csv'
     else:
         filename = sys.argv[1]
     print('Loading weights from',filename)
     print('------------------------------------------------------------')
-    print('STARTING RANKING...')
+    print('STARTING BM25 RANKING...')
     print('------------------------------------------------------------')
-    # Trace used memory and time for the 
-    # indexing process using the improved tokenizer
-    tracemalloc.start()
-    time_start = time.process_time()
 
+    #########################################################
+    # LOADING INFORMATION FROM FILES
+    #########################################################
     # 1 - Loading the stopwords
     stopwords = load_stop_words('resources/stopwords.txt')
     # 2 - Loading the queries
     queries = load_queries('resources/queries.txt',stopwords)
     # 3 - Loads the weights that were previously calculated
-    term_document_weights, document_terms, idf_list = load_weights('bmc_weights.csv')
+    term_document_weights, document_terms, idf_list = load_weights(filename)
 
     # Trace used memory and time for the 
     # indexing process using the improved tokenizer
@@ -74,6 +117,6 @@ if __name__ == '__main__':
     #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
-    dump_to_file(scores, 'bmc_scores.json')
-
     dump_results('bmc_results.csv', results, query_throughput, median_latency, means, latencies)
+
+    # dump_to_file(latencies, 'latencies.json')
