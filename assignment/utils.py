@@ -6,8 +6,7 @@ import operator
 import statistics 
 
 QUERIES_RELEVANCE_FILTERED_FILE = 'resources/queries.relevance.filtered.txt'
-INDEXER_OUTPUT_FILE = 'outputs/indexer_output.txt'
-BMC_OUTPUT_FILE = 'outputs/bmc_data.txt'
+INDEXER_OUTPUT_DIR = 'outputs/'
 DEBUG_DIR = 'debug/'
 VECTOR_SPACE_RANKING_RESULT_FILE = 'outputs/'
 
@@ -303,34 +302,11 @@ def load_query_relevance():
         dump_to_file(relevance,'relevance_sorted.json')
     return relevance
 
-def load_term_idf_weights():
+def load_weights(filename):
     term_document_weights = {}
     document_terms = {}
     idf_list = {}
-    with open(INDEXER_OUTPUT_FILE) as f_in:
-        for line in f_in.readlines():
-            # Processes each line
-            tmp = line.strip().split(';')
-            # Processes the term and associates its idf
-            term,idf = tmp[0].split(':')
-            idf_list[term] = float(idf)
-            # Processes the weight of the term in each of the documents
-            for doc in tmp[1:]:
-                doc_id, doc_weight = doc.split(':')
-                if doc_id not in document_terms:
-                    document_terms[doc_id] = []
-                document_terms[doc_id].append(term)
-                if term not in term_document_weights:
-                    term_document_weights[term] = {}
-                term_document_weights[term][doc_id] = float(doc_weight)
-    return term_document_weights, document_terms, idf_list
-
-
-def load_bmc():
-    term_document_weights = {}
-    document_terms = {}
-    idf_list = {}
-    with open(BMC_OUTPUT_FILE) as f_in:
+    with open("%s%s" % (INDEXER_OUTPUT_DIR,filename)) as f_in:
         for line in f_in.readlines():
             # Processes each line
             tmp = line.strip().split(';')
@@ -355,20 +331,12 @@ def dump_to_file(dic,filename):
     with open("%s%s" % (DEBUG_DIR,filename), "w") as write_file:
         json.dump(dic, write_file, indent=4)
     
-def dump_term_idf_weights(term_document_weights, idf_list):
-    with open(INDEXER_OUTPUT_FILE, "w") as write_file:
+def dump_weights(term_document, idf_list, filename):
+    with open("%s%s" % (INDEXER_OUTPUT_DIR,filename), "w") as write_file:
         for (token,idf) in idf_list.items():
             s = '%s:%.15f' % (token,idf)
-            for docID in term_document_weights[token]:
-                s += ';%s:%.15f' % (docID,term_document_weights[token][docID])
-            write_file.write("%s\n" % s)
-
-def dump_bmc(term_document_weights, idf_list):
-    with open(BMC_OUTPUT_FILE, "w") as write_file:
-        for (token,idf) in idf_list.items():
-            s = '%s:%.15f' % (token,idf)
-            for docID in term_document_weights[token]:
-                s += ';%s:%.15f' % (docID,term_document_weights[token][docID])
+            for docID in term_document[token]:
+                s += ';%s:%.15f' % (docID,term_document[token][docID])
             write_file.write("%s\n" % s)
 
 def dump_results(file_out, results, query_throughput, median_latency, means, latencies):

@@ -97,15 +97,30 @@ def lnc_calculation(term_index,document_length_index):
             idf_list[token] = math.log10(N/dft)
     return document_term_weights, term_document_weights, idf_list
 
-def bmc_pre_calculation(term_index):
-    bmc_data = {}
-    for docID in term_index:
-        for token in term_index[docID]:
-            if token not in bmc_data:
-                bmc_data[token] = {}
-            bmc_data[token][docID] = term_index[docID][token]
-    
-    return bmc_data
+def bm25_avdl(document_length_index):
+    avdl = sum(v for v in document_length_index.values())
+    return avdl / len(document_length_index)
+
+def bm25_weighting(N, k, b, avdl, document_term_index, document_length_index, idf_list):
+    weights = {}
+    for docID in document_term_index:
+        for token in document_term_index[docID]:
+            if token not in weights:
+                weights[token] = {}
+            # Calculates the weight of term token in docID
+            first = idf_list[token]
+            second = (k+1) * document_term_index[docID][token]
+            third = 1 / ( k*((1-b) + (b*document_length_index[docID] / avdl)) + document_term_index[docID][token])
+            weights[token][docID] = first*second*third 
+    return weights
+                
+
+def bmc_pre_calculation(term_index, document_length_index, idf_list):
+    avdl = bm25_avdl(document_length_index)
+    N = len(document_length_index)
+    k = 1.2
+    b = 0.75
+    return bm25_weighting(N, k, b, avdl, term_index, document_length_index, idf_list)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -135,11 +150,11 @@ if __name__ == '__main__':
     
     # 2 - LNC 
     document_term_weights, term_document_weights, idf_list = lnc_calculation(term_index,document_length_index)
-    dump_term_idf_weights(term_document_weights, idf_list)
+    dump_weights(term_document_weights, idf_list, 'tf_idf_weights.csv')
 
     # 3 - BMC
-    bmc_data = bmc_pre_calculation(term_index)
-    dump_bmc(bmc_data, idf_list)
+    bmc_weights = bmc_pre_calculation(term_index,document_length_index, idf_list)
+    dump_weights(bmc_weights, idf_list, 'bmc_weights.csv')
 
     #########################################################
     # BENCHMARKING INFORMATION

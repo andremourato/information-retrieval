@@ -44,9 +44,8 @@ def ltc_calculation(term_document_weights,document_terms,idf_list,queries):
         for docID in document_terms:
             scores[idx+1][docID] = 0
             for token in query:
-                if token not in document_terms[docID]:
-                    continue
-                scores[idx+1][docID] += query_term_weights[idx+1][token] * term_document_weights[token][docID]
+                if token in document_terms[docID]:
+                    scores[idx+1][docID] += query_term_weights[idx+1][token] * term_document_weights[token][docID]
 
         scores[idx+1] = dict(sorted(scores[idx+1].items(), key=operator.itemgetter(1), reverse=True))
         latencies[idx+1] = time.process_time() - query_latency_start
@@ -71,7 +70,7 @@ if __name__ == '__main__':
     # LOADING INFORMATION FROM FILES
     #########################################################
     # 1 - Loading the term weights and idfs
-    term_document_weights, document_terms, idf_list = load_term_idf_weights()
+    term_document_weights, document_terms, idf_list = load_weights('tf_idf_weights.csv')
     # 2 - Loading the stopwords 
     stopwords = load_stop_words('resources/stopwords.txt')
     # 3 - Loading the queries

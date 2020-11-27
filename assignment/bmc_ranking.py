@@ -8,33 +8,23 @@ import math
 # File imports
 from utils import *
 
-def bm25_avdl(document_length_index):
-
-    avdl = sum(v for v in document_length_index.values())
-    return avdl / len(document_length_index)
-
-def bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, queries):
-    weights = {}
+def bm25_scoring(term_document_weights, document_terms, queries):
     scores = {}
-    for idx,query in enumerate(queries):
-        scores[idx+1] = {} 
-
-        for token in query:
-            if token not in weights:
-                weights[token] = {} 
-
-                for docID in bmc_data[token]:
-                    first = idf_list[token]
-                    second = (k+1) * bmc_data[token][docID]
-                    third = 1 / (( k*((1-b) + (b*document_length_index[docID] / avdl)) + bmc_data[token][docID]))
-                    weights[token][docID] = first*second*third 
-                    if docID not in scores[idx+1]:
-                        scores[idx+1][docID] = 0
-                    scores[idx+1][docID] += first*second*third 
-
-        scores[idx+1] = dict(sorted(scores[idx+1].items(), key=operator.itemgetter(1), reverse=True))
-
-    return weights, scores
+    latencies = {}
+    idx = 1
+    for query in queries:
+        query_latency_start = time.process_time()
+        scores[idx] = {}
+        # 1 - Calculates the score of each document for each query
+        for docID in document_terms:
+            scores[idx][docID] = 0
+            for token in query:
+                if token in document_terms[docID]:
+                    scores[idx][docID] += term_document_weights[token][docID]
+        scores[idx] = dict(sorted(scores[idx].items(), key=operator.itemgetter(1), reverse=True))
+        latencies[idx] = time.process_time() - query_latency_start
+        idx += 1
+    return scores, latencies
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -50,30 +40,27 @@ if __name__ == '__main__':
     tracemalloc.start()
     time_start = time.process_time()
 
-    # 1 - Loading document length
-    with open('debug/document_length_index.json') as json_file:
-        document_length_index = json.load(json_file)
-    # 2 - Loading the stopwords
+    # 1 - Loading the stopwords
     stopwords = load_stop_words('resources/stopwords.txt')
-    # 3 - Loading the queries
+    # 2 - Loading the queries
     queries = load_queries('resources/queries.txt',stopwords)
+    # 3 - Loads the weights that were previously calculated
+    term_document_weights, document_terms, idf_list = load_weights('bmc_weights.csv')
+
+    # Trace used memory and time for the 
+    # indexing process using the improved tokenizer
+    tracemalloc.start()
+    time_start = time.process_time()
     #########################################################
     # RANKING
     #########################################################
-
-    bmc_data, document_terms, idf_list = load_bmc()
-    avdl = bm25_avdl(document_length_index)
-    N = len(document_length_index)
-    k = 1.2
-    b = 0.75
-    bmc_weights = {}
-    bmc_weights, scores = bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, queries)
-
+    scores, latencies = bm25_scoring(term_document_weights, document_terms, queries)
 
     #########################################################
     # BENCHMARKING INFORMATION
     #########################################################
-    print('Total ranking time:',time.process_time() - time_start,'s')
+    time_elapsed = time.process_time() - time_start
+    print('Total ranking time:',time_elapsed,'s')
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     print(f"Memory usage for ranking was {current / 10**6}MB; Peak was {peak / 10**6}MB")
@@ -82,10 +69,11 @@ if __name__ == '__main__':
     #########################################################
     # CALCULATING METRICS (precision, recall, f_measure, average_precision, ndcg, latency)
     #########################################################
-    results = calculate_metrics(scores)
+    results, query_throughput, median_latency, means  = calculate_metrics(scores,latencies,time_elapsed)
 
     #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
-    dump_to_file(bmc_weights, 'bmc_weights.json')
     dump_to_file(scores, 'bmc_scores.json')
+
+    dump_results('bmc_results.csv', results, query_throughput, median_latency, means, latencies)
