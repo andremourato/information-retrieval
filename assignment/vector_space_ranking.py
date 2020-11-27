@@ -7,7 +7,7 @@ import sys
 # File imports
 from utils import *
 
-def ltc_calculation(term_document_weights,document_terms,idf_list,queries):
+def weighting_tf_idf(term_document_weights,document_terms,idf_list,queries):
     # 1 - COUNTS THE FREQUENCY OF TERMS IN EACH QUERY
     query_term_frequency = {}
     i = 1
@@ -51,10 +51,6 @@ def ltc_calculation(term_document_weights,document_terms,idf_list,queries):
         latencies[idx+1] = time.process_time() - query_latency_start
 
     return query_term_weights, scores, latencies
-
-def weighting_tf_idf(term_document_weights,document_terms,idf_list,queries):
-    # 1 - LTC calculation
-    return ltc_calculation(term_document_weights,document_terms,idf_list,queries)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

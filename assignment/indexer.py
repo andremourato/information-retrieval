@@ -72,30 +72,29 @@ def indexer(filename):
     return term_index, document_length_index
 
 def lnc_calculation(term_index,document_length_index):
-    document_term_weights = {}
     term_document_weights = {}
     idf_list = {}
     for docID in term_index:
         # 1 - NON-NORMALIZED WEIGHT CALCULATION
-        document_term_weights[docID] = {}
+        document_term_weights = {}
         for token in term_index[docID]:
-            document_term_weights[docID][token] = 1 + math.log10(term_index[docID][token])
+            document_term_weights[token] = 1 + math.log10(term_index[docID][token])
             if token not in term_document_weights:
                 term_document_weights[token] = {}
             term_document_weights[token][docID] = 1 + math.log10(term_index[docID][token])
     
         # 2 - CALCULATION OF THE NORM FACTOR
-        norm_factor = 1/math.sqrt(sum([w**2 for w in document_term_weights[docID].values()]))
+        norm_factor = 1/math.sqrt(sum([w**2 for w in document_term_weights.values()]))
         
         # 3 - NORMALIZED WEIGHT CALCULATION
-        for token in document_term_weights[docID]:
-            document_term_weights[docID][token] *= norm_factor
+        for token in document_term_weights:
             term_document_weights[token][docID] *= norm_factor
             # 4 - Calculating IDF
             N = len(document_length_index)
             dft = len(term_document_weights[token])
             idf_list[token] = math.log10(N/dft)
-    return document_term_weights, term_document_weights, idf_list
+        
+    return term_document_weights, idf_list
 
 def bm25_avdl(document_length_index):
     avdl = sum(v for v in document_length_index.values())
@@ -141,28 +140,37 @@ if __name__ == '__main__':
     # LOADING INFORMATION FROM A FILE
     #########################################################
     stopwords = load_stop_words('resources/stopwords.txt')
+    
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Memory usage when loading stopwords was {current / 10**6}MB; Peak was {peak / 10**6}MB")
 
     #########################################################
     # INDEXER
     #########################################################
     # 1 - Indexing
     term_index, document_length_index = indexer(filename)
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Memory usage when indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     
     # 2 - LNC 
-    document_term_weights, term_document_weights, idf_list = lnc_calculation(term_index,document_length_index)
+    term_document_weights, idf_list = lnc_calculation(term_index,document_length_index)
     dump_weights(term_document_weights, idf_list, 'tf_idf_weights.csv')
-
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Memory usage when calculating lnc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
+    
     # 3 - BMC
     bmc_weights = bmc_pre_calculation(term_index,document_length_index, idf_list)
     dump_weights(bmc_weights, idf_list, 'bmc_weights.csv')
-
+    
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Memory usage when calculating bmc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     #########################################################
     # BENCHMARKING INFORMATION
     #########################################################
     print('Total indexing time:',time.process_time() - time_start,'s')
     current, peak = tracemalloc.get_traced_memory()
+    print(f"FINAL MEMORY USAGE: {current / 10**6}MB; Peak was {peak / 10**6}MB")
     tracemalloc.stop()
-    print(f"Memory usage for indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     print('Total vocabulary size is: ',len(term_index),'words')
     print('------------------------------------------------------------')
 
@@ -170,8 +178,6 @@ if __name__ == '__main__':
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
     dump_to_file(term_index,'term_index.json')
-
-    dump_to_file(document_term_weights,'document_term_weights.json')
 
     dump_to_file(term_document_weights,'term_document_weights.json')
     
