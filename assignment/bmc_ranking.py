@@ -17,8 +17,7 @@ def bm25_weighting(N, k, b, avdl, bmc_data, document_length_index, idf_list, que
     weights = {}
     scores = {}
     for idx,query in enumerate(queries):
-        if idx+1 not in scores:
-            scores[idx+1] = {} 
+        scores[idx+1] = {} 
 
         for token in query:
             if token not in weights:

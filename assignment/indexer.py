@@ -76,19 +76,22 @@ def lnc_calculation(term_index,document_length_index):
     term_document_weights = {}
     idf_list = {}
     for docID in term_index:
+        # 1 - NON-NORMALIZED WEIGHT CALCULATION
+        document_term_weights[docID] = {}
         for token in term_index[docID]:
-            if docID not in document_term_weights:
-                document_term_weights[docID] = {}
             document_term_weights[docID][token] = 1 + math.log10(term_index[docID][token])
             if token not in term_document_weights:
                 term_document_weights[token] = {}
             term_document_weights[token][docID] = 1 + math.log10(term_index[docID][token])
     
-        norm_factor = 1/math.sqrt(sum([document_term_weights[docID][_]**2 for _ in document_term_weights[docID]]))
+        # 2 - CALCULATION OF THE NORM FACTOR
+        norm_factor = 1/math.sqrt(sum([w**2 for w in document_term_weights[docID].values()]))
+        
+        # 3 - NORMALIZED WEIGHT CALCULATION
         for token in document_term_weights[docID]:
             document_term_weights[docID][token] *= norm_factor
             term_document_weights[token][docID] *= norm_factor
-            # Calculating idf of each term
+            # 4 - Calculating IDF
             N = len(document_length_index)
             dft = len(term_document_weights[token])
             idf_list[token] = math.log10(N/dft)
@@ -151,19 +154,14 @@ if __name__ == '__main__':
     #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
-    # dump_to_file(term_index,'term_index.json')
+    dump_to_file(term_index,'term_index.json')
 
-    # dump_to_file(document_term_weights,'document_term_weights.json')
+    dump_to_file(document_term_weights,'document_term_weights.json')
 
     dump_to_file(term_document_weights,'term_document_weights.json')
     
     dump_to_file(document_length_index,'document_length_index.json')
 
     dump_to_file(idf_list,'idf_list.json')
-        
-    # dump_to_file(query_weights,'query_weights.json')
 
-    # dump_to_file(document_query_weights,'document_query_weights.json')
-
-    # dump_to_file(scores,'scores.json')
     
