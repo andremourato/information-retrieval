@@ -3,11 +3,13 @@ import json
 import os
 import math
 import operator
+import statistics 
 
+QUERIES_RELEVANCE_FILTERED_FILE = 'resources/queries.relevance.filtered.txt'
 INDEXER_OUTPUT_FILE = 'outputs/indexer_output.txt'
 BMC_OUTPUT_FILE = 'outputs/bmc_data.txt'
 DEBUG_DIR = 'debug/'
-QUERIES_RELEVANCE_FILTERED_FILE = 'resources/queries.relevance.filtered.txt'
+VECTOR_SPACE_RANKING_RESULT_FILE = 'outputs/'
 
 #########################################################
 # AUXILIAR METHODS
@@ -33,13 +35,11 @@ def calculate_status(engine_relevance,file_relevance):
 #########################################################
 # METRIC CALCULATION
 #########################################################
-def calculate_metrics(scores):
-    # results contains tp, fp, fn, tn of each query
+def calculate_metrics(scores, latencies, time_elapsed):
+    # Results contains tp, fp, fn, tn of each query and other metrics
     results = {}
+    means = {}
     relevance = load_query_relevance()        
-    mean_avg_precision10 = 0
-    mean_avg_precision20 = 0
-    mean_avg_precision50 = 0
     for query in scores:
         results[query] = {
             10:{
@@ -71,13 +71,7 @@ def calculate_metrics(scores):
         results[query][20]['avg_precision'] = 0
         results[query][50]['avg_precision'] = 0
 
-        #temporary precision
-        top10_temp_precision = 0
-        top20_temp_precision = 0
-        top50_temp_precision = 0
-
         # DCG - Discounted Cumulative Gain
-        ideal_dcg = {}
         ideal_dcg = {
             10: 0,
             20: 0,
@@ -110,132 +104,174 @@ def calculate_metrics(scores):
                 file_relevant = 0
             else:
                 file_relevant = relevance[query][doc_id]
+
             is_top10 = False
             is_top20 = False
             is_top50 = False
+            
+            # If the current document is in the Top 10
             if i < 10:
                 is_top10 = True
                 dcg10 += file_relevant if i == 0 else file_relevant/math.log2(i+1)
+                # Calculates average precision
+                if file_relevant > 0:
+                    top10_num_relevant += 1
+                    results[query][10]['avg_precision'] += top10_num_relevant / (i+1)
+            # If the current document is in the Top 20
             if i < 20:
                 is_top20 = True
                 dcg20 += file_relevant if i == 0 else file_relevant/math.log2(i+1)
+                # Calculates average precision
+                if file_relevant > 0:
+                    top20_num_relevant += 1
+                    results[query][20]['avg_precision'] += top20_num_relevant / (i+1)
+            # If the current document is in the Top 50
             if i < 50:
                 is_top50 = True
                 dcg50 += file_relevant if i == 0 else file_relevant/math.log2(i+1)
+                # Calculates average precision
+                if file_relevant > 0:
+                    top50_num_relevant += 1
+                    results[query][50]['avg_precision'] += top50_num_relevant / (i+1)
 
-            top10_state = calculate_status(is_top10,file_relevant)
-            top20_state = calculate_status(is_top20,file_relevant)
-            top50_state = calculate_status(is_top50,file_relevant)
-            
-            # Calculates average precision
-            if i < 10:
-                top10_num_relevant += 1
-            if i < 20:
-                top20_num_relevant += 1
-            if i < 50:
-                top50_num_relevant += 1
-
-            top10_temp_precision = top10_num_relevant / (i+1)
-            top20_temp_precision = top20_num_relevant / (i+1)
-            top50_temp_precision = top50_num_relevant / (i+1)
-
-            if i < 10:
-                results[query][10]['avg_precision'] += top10_num_relevant / (i+1)
-            if i < 20:
-                results[query][20]['avg_precision'] += top20_num_relevant / (i+1)
-            if i < 50:
-                results[query][50]['avg_precision'] += top50_num_relevant / (i+1)
-
-            results[query][10][top10_state] += 1
-            results[query][20][top20_state] += 1
-            results[query][50][top50_state] += 1
-            
+            # Decides if it is a tp, tn, fp, fn
+            results[query][10][calculate_status(is_top10,file_relevant)] += 1
+            results[query][20][calculate_status(is_top20,file_relevant)] += 1
+            results[query][50][calculate_status(is_top50,file_relevant)] += 1
+        
+        ##################################
         # 1 - PRECISION | P = tp/(tp + fp)
+        ##################################
         top10_den = results[query][10]['tp'] + results[query][10]['fp']
         top20_den = results[query][20]['tp'] + results[query][20]['fp']
         top50_den = results[query][50]['tp'] + results[query][50]['fp']
+        # Top 10
         if top10_den != 0:
             results[query][10]['precision'] = results[query][10]['tp'] / top10_den
         else:
             results[query][10]['precision'] = 0
+        # Top 20
         if top20_den != 0:
             results[query][20]['precision'] = results[query][20]['tp'] / top20_den
         else:
             results[query][20]['precision'] = 0
+        # Top 50
         if top50_den != 0:
             results[query][50]['precision'] = results[query][50]['tp'] / top50_den
         else:
             results[query][50]['precision'] = 0
         
+        ##################################
         # 2 - RECALL | R = tp/(tp + fn)
+        ##################################
         top10_den = results[query][10]['tp'] + results[query][10]['fn']
         top20_den = results[query][20]['tp'] + results[query][20]['fn']
         top50_den = results[query][50]['tp'] + results[query][50]['fn']
+        # Top 10
         if top10_den != 0:
             results[query][10]['recall'] = results[query][10]['tp'] / top10_den
         else:
             results[query][10]['recall'] = 0
+        # Top 20
         if top20_den != 0:
             results[query][20]['recall'] = results[query][20]['tp'] / top20_den
         else:
             results[query][20]['recall'] = 0
+        # Top 50
         if top50_den != 0:
             results[query][50]['recall'] = results[query][50]['tp'] / top50_den
         else:
             results[query][50]['recall'] = 0
 
+        ##################################
         # 3 - F MEASURE | F = 2RP/(R+P)
+        ##################################
         top10_den = results[query][10]['recall'] + results[query][10]['precision']
         top20_den = results[query][20]['recall'] + results[query][20]['precision']
         top50_den = results[query][50]['recall'] + results[query][50]['precision']
+        # Top 10
         if top10_den != 0:
             results[query][10]['fmeasure'] = 2 * results[query][10]['recall'] * results[query][10]['precision'] / top10_den
         else:
             results[query][10]['fmeasure'] = 0
+        # Top 20
         if top20_den != 0:
             results[query][20]['fmeasure'] = 2 * results[query][20]['recall'] * results[query][20]['precision'] / top20_den
         else:
             results[query][20]['fmeasure'] = 0
+        # Top 50
         if top50_den != 0:
             results[query][50]['fmeasure'] = 2 * results[query][50]['recall'] * results[query][50]['precision'] / top50_den
         else:
             results[query][50]['fmeasure'] = 0
         
+        ##################################
         # 4 - Average Precision
-        results[query][10]['avg_precision'] = results[query][10]['avg_precision'] / len(docs)
-        results[query][20]['avg_precision'] = results[query][20]['avg_precision'] / len(docs)
-        results[query][50]['avg_precision'] = results[query][50]['avg_precision'] / len(docs)
-
-        mean_avg_precision10 += results[query][10]['avg_precision']
-        mean_avg_precision20 += results[query][20]['avg_precision']
-        mean_avg_precision50 += results[query][50]['avg_precision']
-        
+        ##################################
+        # Top 10
+        if top10_num_relevant != 0:
+            results[query][10]['avg_precision'] = results[query][10]['avg_precision'] / top10_num_relevant
+        else:
+            results[query][10]['avg_precision'] = 0
+        # Top 20
+        if top20_num_relevant != 0:
+            results[query][20]['avg_precision'] = results[query][20]['avg_precision'] / top20_num_relevant
+        else:
+            results[query][20]['avg_precision'] = 0
+        # Top 50
+        if top50_num_relevant != 0:
+            results[query][50]['avg_precision'] = results[query][50]['avg_precision'] / top50_num_relevant
+        else:
+            results[query][50]['avg_precision'] = 0
+        ##################################
         # 5 - NDCG
+        ##################################
         # Top 10
         if ideal_dcg[10] != 0:
-            results[query][10]['dcg'] = dcg10 / ideal_dcg[10]
+            results[query][10]['ndcg'] = dcg10 / ideal_dcg[10]
         else:
-            results[query][10]['dcg'] = 0
+            results[query][10]['ndcg'] = 0
         # Top 20
         if ideal_dcg[20] != 0:
-            results[query][20]['dcg'] = dcg20 / ideal_dcg[20]
+            results[query][20]['ndcg'] = dcg20 / ideal_dcg[20]
         else:
-            results[query][20]['dcg'] = 0
+            results[query][20]['ndcg'] = 0
         # Top 50
         if ideal_dcg[50] != 0:
-            results[query][50]['dcg'] = dcg50 / ideal_dcg[50]
+            results[query][50]['ndcg'] = dcg50 / ideal_dcg[50]
         else:
-            results[query][50]['dcg'] = 0
+            results[query][50]['ndcg'] = 0
+
+    ##################################
+    # 7 - Query Throughput
+    ##################################
+    query_throughput = len(scores) / time_elapsed
+
+    ##################################
+    # 8 - Median query latency
+    ##################################
+    median_latency = statistics.median(latencies.values())
     
-    mean_avg_precision10 = mean_avg_precision10 / len(results)
-    mean_avg_precision20 = mean_avg_precision20 / len(results)
-    mean_avg_precision50 = mean_avg_precision50 / len(results)
-    print('MEAN AVG PRECISION')
-    print(mean_avg_precision10)
-    print(mean_avg_precision20)
-    print(mean_avg_precision50)
-    print('\n')
-    return results
+    ##################################
+    # 9 Mean Values
+    ##################################
+    means['precision10'] = statistics.mean([ query[10]['precision'] for query in results.values()])
+    means['precision20'] = statistics.mean([ query[20]['precision'] for query in results.values()])
+    means['precision50'] = statistics.mean([ query[50]['precision'] for query in results.values()])
+    means['recall10'] = statistics.mean([ query[10]['recall'] for query in results.values()])
+    means['recall20'] = statistics.mean([ query[20]['recall'] for query in results.values()])
+    means['recall50'] = statistics.mean([ query[50]['recall'] for query in results.values()])
+    means['fmeasure10'] = statistics.mean([ query[10]['fmeasure'] for query in results.values()])
+    means['fmeasure20'] = statistics.mean([ query[20]['fmeasure'] for query in results.values()])
+    means['fmeasure50'] = statistics.mean([ query[50]['fmeasure'] for query in results.values()])
+    means['map10'] = statistics.mean([ query[10]['avg_precision'] for query in results.values()])
+    means['map20'] = statistics.mean([ query[20]['avg_precision'] for query in results.values()])
+    means['map50'] = statistics.mean([ query[50]['avg_precision'] for query in results.values()])
+    means['ndcg10'] = statistics.mean([ query[10]['ndcg'] for query in results.values()])
+    means['ndcg20'] = statistics.mean([ query[20]['ndcg'] for query in results.values()])
+    means['ndcg50'] = statistics.mean([ query[50]['ndcg'] for query in results.values()])
+
+    return results, query_throughput, median_latency, means
 
 #########################################################
 # FILE METHODS
@@ -334,3 +370,57 @@ def dump_bmc(term_document_weights, idf_list):
             for docID in term_document_weights[token]:
                 s += ';%s:%.15f' % (docID,term_document_weights[token][docID])
             write_file.write("%s\n" % s)
+
+def dump_results(file_out, results, query_throughput, median_latency, means, latencies):
+    with open("%s%s" % (VECTOR_SPACE_RANKING_RESULT_FILE,file_out), "w") as write_file:
+        write_file.write('query;precision10;precision20;precision50;recall10;recall20;recall50;fmeasure10;fmeasure20;fmeasure50;avgprecision10;avgprecision20;avgprecision50;ndcg10;ndcg20;ndcg50;latency\n')
+        idx = 1
+        for query in results:
+            s = str(idx) + ';'
+            # Precision
+            s += '%f;%f;%f;' % (results[query][10]['precision'],
+                                results[query][20]['precision'],
+                                results[query][50]['precision'])
+
+            # Recall  
+            s += '%f;%f;%f;' % (results[query][10]['recall'],
+                                results[query][20]['recall'],
+                                results[query][50]['recall'])
+
+            # F Measure
+            s += '%f;%f;%f;' % (results[query][10]['fmeasure'],
+                                results[query][20]['fmeasure'],
+                                results[query][50]['fmeasure'])
+
+            # Avg Precision
+            s += '%f;%f;%f;' % (results[query][10]['avg_precision'],
+                                results[query][20]['avg_precision'],
+                                results[query][50]['avg_precision'])
+
+            # NDCG
+            s += '%f;%f;%f;' % (results[query][10]['ndcg'],
+                                results[query][20]['ndcg'],
+                                results[query][50]['ndcg'])
+            # latency
+            s += str(latencies[idx]) + '\n'
+            idx += 1
+            write_file.write(s)
+        # Writes the last line with the mean values of each metric (and writes the median of the latencies)
+        write_file.write(
+            'mean;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f;%f' % 
+            (means['precision10'],
+            means['precision20'],
+            means['precision50'],
+            means['recall10'],
+            means['recall20'],
+            means['recall50'],
+            means['fmeasure10'],
+            means['fmeasure20'],
+            means['fmeasure50'],
+            means['map10'],
+            means['map20'],
+            means['map50'],
+            means['ndcg10'],
+            means['ndcg20'],
+            means['ndcg50'],
+            median_latency))

@@ -11,7 +11,9 @@ def ltc_calculation(term_document_weights,document_terms,idf_list,queries):
     query_document_weights = {}
     document_query_weights = {}
     scores = {}
+    latencies = {}
     for idx,query in enumerate(queries):
+        query_latency_start = time.process_time()
         for token in query:
             # If the token exists in at least one document
             for docID in document_terms:
@@ -31,8 +33,9 @@ def ltc_calculation(term_document_weights,document_terms,idf_list,queries):
         # 3 - Score calculation
         scores[idx+1] = { docID: sum(v.values()) for docID,v in document_query_weights.items() }
         scores[idx+1] = dict(sorted(scores[idx+1].items(), key=operator.itemgetter(1), reverse=True))
+        latencies[idx+1] = time.process_time() - query_latency_start
 
-    return query_document_weights, document_query_weights, scores    
+    return query_document_weights, document_query_weights, scores, latencies  
 
 def weighting_tf_idf(term_document_weights,document_terms,idf_list,queries):
     # 1 - LTC calculation
@@ -47,10 +50,6 @@ if __name__ == '__main__':
     print('------------------------------------------------------------')
     print('STARTING RANKING...')
     print('------------------------------------------------------------')
-    # Trace used memory and time for the 
-    # indexing process using the improved tokenizer
-    tracemalloc.start()
-    time_start = time.process_time()
 
     #########################################################
     # LOADING INFORMATION FROM FILES
@@ -62,16 +61,21 @@ if __name__ == '__main__':
     # 3 - Loading the queries
     queries = load_queries('resources/queries.txt',stopwords)
 
+    # Trace used memory and time for the 
+    # indexing process using the improved tokenizer
+    tracemalloc.start()
+    time_start = time.process_time()
     #########################################################
     # RANKING
     #########################################################
 
-    query_document_weights, document_query_weights, scores = weighting_tf_idf(term_document_weights,document_terms,idf_list,queries)
+    query_document_weights, document_query_weights, scores, latencies = weighting_tf_idf(term_document_weights,document_terms,idf_list,queries)
 
     #########################################################
     # BENCHMARKING INFORMATION
     #########################################################
-    print('Total ranking time:',time.process_time() - time_start,'s')
+    time_elapsed = time.process_time() - time_start
+    print('Total ranking time:',time_elapsed,'s')
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     print(f"Memory usage for ranking was {current / 10**6}MB; Peak was {peak / 10**6}MB")
@@ -80,11 +84,15 @@ if __name__ == '__main__':
     #########################################################
     # CALCULATING METRICS (precision, recall, f_measure, average_precision, ndcg, latency)
     #########################################################
-    results = calculate_metrics(scores)
+    results, query_throughput, median_latency, means  = calculate_metrics(scores,latencies,time_elapsed)
 
     #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     #########################################################
+    dump_to_file(means,'means.json')
+
+    dump_results('vector_space_results.csv', results, query_throughput, median_latency, means, latencies)
+
     dump_to_file(term_document_weights,'ranked_term_document_weights.json')
 
     dump_to_file(idf_list,'ranked_idf_list.json')
@@ -94,3 +102,5 @@ if __name__ == '__main__':
     dump_to_file(results,'results.json')
 
     dump_to_file(document_query_weights, 'document_query_weights.json')
+
+    dump_to_file(latencies, 'latencies.json')
