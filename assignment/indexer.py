@@ -51,10 +51,18 @@ def indexer(filename):
         }
     '''
     term_index = {}
+    term_index2 = {}
     document_length_index = {}
+    block_number = 0
+    block_size_limit = 2000000
     with open(filename) as csvfile:
         # Iterate over the CSV file ignoring entries without an abstract
         # and joining the title and abstract fields into a single string
+
+        # documents_count = sum(1 for line in csvfile)
+        # print('whatsup'+str(documents_count))
+        # csvfile.seek(0)
+        
         for idx,row in enumerate(csv.DictReader(csvfile)):
             if len(row['abstract']) > 0:
                 string =  row['title'] + ' ' + row['abstract']
@@ -73,6 +81,7 @@ def indexer(filename):
                         document_length_index[row['cord_uid']] = 0
                     # Counts the number of terms in each document
                     document_length_index[row['cord_uid']] += 1
+
                     # Counts the term frequency
                     if row['cord_uid'] not in term_index:
                         term_index[row['cord_uid']] = {}
@@ -80,8 +89,33 @@ def indexer(filename):
                         term_index[row['cord_uid']][tok] = 1
                     else:
                         term_index[row['cord_uid']][tok] += 1
-    
+
+                    # Counts the term frequency
+                    if row['cord_uid'] not in term_index2:
+                        term_index2[row['cord_uid']] = {}
+                    if tok not in term_index2[row['cord_uid']]:
+                        term_index2[row['cord_uid']][tok] = 1
+                    else:
+                        term_index2[row['cord_uid']][tok] += 1
+
+            if sys.getsizeof(term_index2) > block_size_limit: # or (idx == documents_count-1):
+                # temp_dict = sort_terms(term_index2)
+                dump_to_file(term_index2,'block_'+ str(block_number) +'.json')
+                # temp_dict = {}
+                block_number += 1
+                term_index2 = {}
+
+        dump_to_file(term_index2,'block_'+ str(block_number) +'.json')
+        
     return term_index, document_length_index
+
+# def sort_terms(term_index):
+#     # Sorts dictionary terms in alphabetical order
+#     print(" -- Sorting terms...")
+#     sorted_dictionary = OrderedDict() 
+#     return sorted_dictionary
+
+# def merge_blocks():
 
 def lnc_calculation(term_index,document_length_index):
     '''Normalized lnc weight and idf calculator for all terms in dataset
