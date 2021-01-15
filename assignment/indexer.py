@@ -15,6 +15,7 @@ import operator
 import csv
 # File imports
 from utils import *
+from collections import OrderedDict
 
 def indexer(filename):
     '''An improved tokenizer that replaces all non-alphabetic characters by a space, lowercases
@@ -51,10 +52,10 @@ def indexer(filename):
         }
     '''
     term_index = {}
-    term_index2 = {}
     document_length_index = {}
-    block_number = 0
-    block_size_limit = 1000000
+    doc_number = 0
+    num_blocks = 0
+    block_size_limit = 100 #max number of documents per block 
     with open(filename) as csvfile:
         # Iterate over the CSV file ignoring entries without an abstract
         # and joining the title and abstract fields into a single string
@@ -81,7 +82,7 @@ def indexer(filename):
                     # Counts the number of terms in each document
                     document_length_index[row['cord_uid']] += 1
 
-                    # # Counts the term frequency
+                    # Counts the term frequency
                     # if row['cord_uid'] not in term_index:
                     #     term_index[row['cord_uid']] = {}
                     # if tok not in term_index[row['cord_uid']]:
@@ -90,30 +91,21 @@ def indexer(filename):
                     #     term_index[row['cord_uid']][tok] += 1
 
                     # Counts the term frequency
-                    if tok not in term_index2:
-                        term_index2[tok] = {}
-                    if row['cord_uid'] not in term_index2[tok]:
-                        term_index2[tok][row['cord_uid']] = 1
+                    if tok not in term_index:
+                        term_index[tok] = {}
+                    if row['cord_uid'] not in term_index[tok]:
+                        term_index[tok][row['cord_uid']] = 1
                     else:
-                        term_index2[tok][row['cord_uid']] += 1
+                        term_index[tok][row['cord_uid']] += 1
 
-            if sys.getsizeof(term_index2) > block_size_limit: # or (idx == documents_count-1):
-                # temp_dict = sort_terms(term_index2)
-                dump_to_file(term_index2,'block_'+ str(block_number) +'.json')
-                # temp_dict = {}
-                block_number += 1
-                term_index2.clear()
-
-        dump_to_file(sorted(term_index2),'block_'+ str(block_number) +'.json')
+                doc_number += 1
+                if doc_number % block_size_limit == 0:
+                    res = { k:term_index[k] for k in sorted(term_index.keys())}
+                    num_blocks += 1
+                    dump_to_file(res,'block_'+ str(num_blocks) +'.json')
+                    term_index.clear()
         
-        print('NUMBER OF DOCS ' + str(idx))
     return term_index, document_length_index
-
-# def sort_terms(term_index):
-#     # Sorts dictionary terms in alphabetical order
-#     print(" -- Sorting terms...")
-#     sorted_dictionary = OrderedDict() 
-#     return sorted_dictionary
 
 # def merge_blocks():
 
@@ -318,26 +310,26 @@ if __name__ == '__main__':
     current, peak = tracemalloc.get_traced_memory()
     print(f"Memory usage when calculating lnc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     
-    # 3 - BMC
+    # # 3 - BMC
     bmc_weights = bmc_pre_calculation(term_index,document_length_index, idf_list)
     dump_weights(bmc_weights, idf_list, 'bmc_weights.csv')
     current, peak = tracemalloc.get_traced_memory()
     print(f"Memory usage when calculating bmc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
-    #########################################################
-    # BENCHMARKING INFORMATION
-    #########################################################
-    print('Total indexing time:',time.process_time() - time_start,'s')
-    current, peak = tracemalloc.get_traced_memory()
-    print(f"FINAL MEMORY USAGE: {current / 10**6}MB; Peak was {peak / 10**6}MB")
-    tracemalloc.stop()
-    print('Total vocabulary size is: ',len(term_index),'words')
-    print('------------------------------------------------------------')
+    # #########################################################
+    # # BENCHMARKING INFORMATION
+    # #########################################################
+    # print('Total indexing time:',time.process_time() - time_start,'s')
+    # current, peak = tracemalloc.get_traced_memory()
+    # print(f"FINAL MEMORY USAGE: {current / 10**6}MB; Peak was {peak / 10**6}MB")
+    # tracemalloc.stop()
+    # print('Total vocabulary size is: ',len(term_index),'words')
+    # print('------------------------------------------------------------')
 
     #########################################################
     # DUMPING DATA STRUCTURES TO A FILE
     # Used for debugging but was kept commented on purpose
     #########################################################
-    # dump_to_file(term_index,'term_index.json')
+    dump_to_file(term_index,'term_index.json')
 
     # dump_to_file(bmc_weights,'bmc_weights.json')
     

@@ -484,7 +484,7 @@ def dump_to_file(dic,filename):
     '''
     if not os.path.exists(DEBUG_DIR):
         os.mkdir(DEBUG_DIR, 0o775)
-    print('DUMPING TO FILE %s' % filename)
+    #print('DUMPING TO FILE %s' % filename)
     with open("%s%s" % (DEBUG_DIR,filename), "w") as write_file:
         json.dump(dic, write_file, indent=4)
     
