@@ -16,6 +16,7 @@ import csv
 # File imports
 from utils import *
 from collections import OrderedDict
+from spimi import *
 
 def indexer(filename):
     '''An improved tokenizer that replaces all non-alphabetic characters by a space, lowercases
@@ -55,13 +56,12 @@ def indexer(filename):
     document_length_index = {}
     doc_number = 0
     num_blocks = 0
-    block_size_limit = 100 #max number of documents per block 
+    num_tokens = 0
+    block_size_limit = 2 #max number of documents per block 
+    print(filename)
     with open(filename) as csvfile:
         # Iterate over the CSV file ignoring entries without an abstract
         # and joining the title and abstract fields into a single string
-
-        # documents_count = sum(1 for line in csvfile)
-        # csvfile.seek(0)
         
         for idx,row in enumerate(csv.DictReader(csvfile)):
             if len(row['abstract']) > 0:
@@ -73,6 +73,7 @@ def indexer(filename):
                     for token in (remove_non_alpha(string)) \
                         if len(token) >= 3 and token not in stopwords]):
                     
+                    num_tokens += 1 #counts tokens
                     # Indexes all the input tokens into one dictionaries
                     # the term_index dict which registers the total number of occurrences
                     # of a token in each document
@@ -98,13 +99,20 @@ def indexer(filename):
                     else:
                         term_index[tok][row['cord_uid']] += 1
 
-                doc_number += 1
-                if doc_number % block_size_limit == 0:
-                    res = { k:term_index[k] for k in sorted(term_index.keys())}
+                doc_number = (doc_number + 1) % block_size_limit
+                if doc_number == 0:
                     num_blocks += 1
-                    dump_to_file(res,'block_'+ str(num_blocks) +'.json')
-                    term_index.clear()
-        
+                    dump_to_file(Spimi.sort_terms(term_index),'block_'+ str(num_blocks) +'.json')
+        # writes the last block
+        if len(term_index) > 0:
+            num_blocks += 1
+            dump_to_file(Spimi.sort_terms(term_index),'block_'+ str(num_blocks) +'.json')
+
+
+    ### MERGE BLOCKS ###
+    Spimi.merge_blocks(num_blocks,num_tokens)
+
+
     return term_index, document_length_index
 
 # def merge_blocks():
@@ -275,7 +283,7 @@ def bmc_pre_calculation(term_index, document_length_index, idf_list):
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        filename = 'datasets/metadata_2020-03-27.csv'
+        filename = 'datasets/metadata_small.csv'
     else:
         filename = sys.argv[1]
     print('Reading dataset from file',filename)
