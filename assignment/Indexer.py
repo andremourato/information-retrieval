@@ -79,7 +79,6 @@ class Indexer:
         with open(self.DATASET_FILENAME) as csvfile:
             # Iterate over the CSV file ignoring entries without an abstract
             # and joining the title and abstract fields into a single string
-            
             for idx,row in enumerate(csv.DictReader(csvfile)):
                 if len(row['abstract']) > 0:
                     string =  row['title'] + ' ' + row['abstract']
@@ -125,8 +124,6 @@ class Indexer:
             if len(term_index) > 0:
                 self.num_blocks += 1
                 dump_to_file(Spimi.sort_terms(term_index),'block_'+ str(self.num_blocks) +'.json')
-
-
         ### MERGE BLOCKS ###
         Spimi.merge_blocks(self.num_blocks,self.num_tokens)
 

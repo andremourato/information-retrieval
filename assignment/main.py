@@ -24,7 +24,7 @@ if __name__ == '__main__':
     print('STARTING INDEXING...')
     print('------------------------------------------------------------')
 
-    ind = Indexer(filename,10000)
+    ind = Indexer(filename,2)
     # Trace used memory and time for the 
     # indexing process using the improved tokenizer
     tracemalloc.start()
