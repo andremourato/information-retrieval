@@ -15,6 +15,28 @@ from Spimi import *
 class Indexer:
 
     @staticmethod
+    def dump_weights(term_document, idf_list, filename):
+        '''Writes the term idfs and weights to a file
+        ----------
+        term_document : dict
+            Dictionary that contains the token as the key and the number of occurences as the value.
+
+        idf_list : dict
+            Dictionary that contains the token as the key and the idf as the value.
+
+        filename : string
+            The file to where the dict should be written
+        '''
+        if not os.path.exists(OUTPUT_DIR):
+            os.mkdir(OUTPUT_DIR, 0o775)
+        with open("%s%s" % (OUTPUT_DIR,filename), "w") as write_file:
+            for (token,idf) in idf_list.items():
+                s = '%s:%.15f' % (token,idf)
+                for docID in term_document[token]:
+                    s += ';%s:%.15f' % (docID,term_document[token][docID])
+                write_file.write("%s\n" % s)
+
+    @staticmethod
     def load_stop_words(file):
         '''Loads the list of stop words from a file
         ----------
@@ -126,8 +148,9 @@ class Indexer:
                 dump_to_file(Spimi.sort_terms(term_index),'block_'+ str(self.num_blocks) +'.json')
         ### MERGE BLOCKS ###
         Spimi.merge_blocks(self.num_blocks,self.num_tokens)
+        
 
-    def lnc_calculation(self,N):
+    def lnc_calculation(self):
         '''Normalized lnc weight and idf calculator for all terms in dataset
         ----------
         N : int

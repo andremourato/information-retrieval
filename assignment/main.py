@@ -40,8 +40,8 @@ if __name__ == '__main__':
     print(f"Memory usage when indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     
     # # 2 - TF-IDF
-    # ind.lnc_calculation(len(ind.document_length_index))
-    # dump_weights(ind.term_document_weights, ind.idf_list, 'tf_idf_weights.csv')
+    # ind.lnc_calculation()
+    # Indexer.dump_weights(ind.term_document_weights, ind.idf_list, 'tf_idf_weights.csv')
     # current, peak = tracemalloc.get_traced_memory()
     # print(f"Memory usage when calculating lnc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     

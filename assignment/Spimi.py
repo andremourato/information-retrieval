@@ -21,6 +21,7 @@ class Spimi:
         max_num_terms_per_block = math.floor(T/N)
         indexes = [0] * N
         sizes = [MAX_INT] * N
+        intervals = []
         result = {}
         #merges
         num_completed = 0
@@ -58,6 +59,9 @@ class Spimi:
             #check if result is full
             if len(result) >= max_num_terms_per_block or num_completed == N:
                 num_sorted += 1
-                dump_to_file(result,'sorted_block_%d.json'%num_sorted)
+                result_keys = list(result.keys())
+                first = result_keys[0]
+                last = result_keys[-1]
+                dump_to_file(result,'sorted_%s_%s_%d.json'%(first,last,num_sorted))
                 result.clear()
                 result = {}
