@@ -306,7 +306,7 @@ class Indexer:
             for token in self.data:
                 s = '%s:%.15f' % (token,self.idf_list[token])
                 for docID in self.data[token]:
-                    s += ';%s:%f:%s' % (docID,self.term_document_weights[token][docID],','.join(self.data[token][docID]))
+                    s += ';%s:%.15f:%s' % (docID,self.term_document_weights[token][docID],','.join(self.data[token][docID]))
                 write_file.write("%s\n" % s)
 
                                 
