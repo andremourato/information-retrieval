@@ -170,7 +170,6 @@ class Indexer:
                 "align": 2.012928877017827
                 }
         '''
-        
         for f_name in os.listdir(Spimi.FOLDER):
             if f_name.startswith('sorted_'):
                 with open(os.path.join(Spimi.FOLDER,f_name)) as block:
@@ -183,8 +182,8 @@ class Indexer:
                             # 4 - Calculating IDF
                             dft = len(self.data[token])
                             self.idf_list[token] = math.log10(self.N/dft)
-                    #dump..
-                    self.dump_weights_lnc('%s.csv'%f_name.split('.')[0])
+                    #dump weights
+                    self.dump_weights_lnc('lnc_%s.csv'%f_name.split('.')[0])
                     self.term_document_weights.clear()
                     self.data.clear()
 
@@ -225,7 +224,7 @@ class Indexer:
         avdl = sum(v for v in self.document_length_index.values())
         return avdl / len(self.document_length_index)
 
-    def bm25_weighting(self,N, k, b, avdl, document_term_index):
+    def bm25_weighting(self,N, k, b, avdl):
         '''Calculates bm25 weights for each token
         ----------
         N : int
@@ -267,19 +266,52 @@ class Indexer:
                     }
                 }
         '''
-        for docID in document_term_index:
-            for token in document_term_index[docID]:
-                if token not in self.weights:
-                    self.weights[token] = {}
-                # Calculates the weight of term token in docID
-                first = self.idf_list[token]
-                second = (k+1) * document_term_index[docID][token]
-                third = 1 / ( k*((1-b) + (b*self.document_length_index[docID] / avdl)) + document_term_index[docID][token])
-                self.weights[token][docID] = first*second*third 
-        return self.weights
+        for f_name in os.listdir(Spimi.FOLDER):
+            if f_name.startswith('sorted_'):
+                with open(os.path.join(Spimi.FOLDER,f_name)) as block:
+                    self.term_document_weights = {}
+                    self.data = json.load(block)
+                    for token in self.data:
+                        for docID in self.data[token]:
+                    ####################
+                            if token not in self.term_document_weights:
+                                self.term_document_weights[token] = {}
+                            # Calculates the weight of term token in docID
+                            first = self.idf_list[token]
+                            tf = len(self.data[token][docID])
+                            second = (k+1) * tf
+                            third = 1 / ( k*((1-b) + (b*self.document_length_index[docID] / avdl)) + tf)
+                            self.term_document_weights[token][docID] = first*second*third 
                     
+                    #dump weights
+                    self.dump_weights_bmc('bmc_%s.csv'%f_name.split('.')[0])
+                    self.term_document_weights.clear()
+                    self.data.clear()
 
-    def bmc_pre_calculation(term_index):
+    def dump_weights_bmc(self,filename):
+        '''Writes the term idfs and weights to a file
+        ----------
+        term_document : dict
+            Dictionary that contains the token as the key and the number of occurences as the value.
+
+        idf_list : dict
+            Dictionary that contains the token as the key and the idf as the value.
+
+        filename : string
+            The file to where the dict should be written
+        '''
+        if not os.path.exists(OUTPUT_DIR):
+            os.mkdir(OUTPUT_DIR, 0o775)
+        with open(os.path.join(OUTPUT_DIR,filename), "w+") as write_file:
+            for token in self.data:
+                s = '%s:%.15f' % (token,self.idf_list[token])
+                for docID in self.data[token]:
+                    s += ';%s:%f:%s' % (docID,self.term_document_weights[token][docID],','.join(self.data[token][docID]))
+                write_file.write("%s\n" % s)
+
+                                
+
+    def bmc_pre_calculation(self):
         '''Uses parameter values required for bm25 weighting and then calculates bm25 weights for each token
         ----------
         term_index : dict
@@ -309,10 +341,9 @@ class Indexer:
                     }
                 }
         '''
-        avdl = bm25_avdl(self.document_length_index)
-        N = len(self.document_length_index)
+        avdl = self.bm25_avdl()
         k = 1.2
         b = 0.75
-        return bm25_weighting(N, k, b, avdl, term_index, self.document_length_index, self.idf_list)
+        return self.bm25_weighting(self.N, k, b, avdl)
 
     

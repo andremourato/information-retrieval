@@ -46,10 +46,10 @@ if __name__ == '__main__':
     print(f"Memory usage when calculating lnc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     
     # # # 3 - BMC
-    # ind.bmc_pre_calculation(ind.document_length_index, ind.idf_list)
+    ind.bmc_pre_calculation()
     # dump_weights(ind.bmc_weights, ind.idf_list, 'bmc_weights.csv')
-    # current, peak = tracemalloc.get_traced_memory()
-    # print(f"Memory usage when calculating bmc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Memory usage when calculating bmc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     # #########################################################
     # # BENCHMARKING INFORMATION
     # #########################################################
