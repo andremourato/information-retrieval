@@ -15,6 +15,7 @@ class Spimi:
     #term:idf:docid_doc_weight:po1,pos2,po3:docid:doc_weight:pos1....   
     @staticmethod
     def merge_blocks(N,T):
+        print(N,T)
         NUM_LOADED = 0
         MAX_INT = 9223372036854775807
         num_sorted = 0

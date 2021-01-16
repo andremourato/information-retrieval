@@ -8,33 +8,12 @@
 import math
 import Stemmer
 import csv
+import os
 # File imports
 from utils import *
 from Spimi import *
 
 class Indexer:
-
-    @staticmethod
-    def dump_weights(term_document, idf_list, filename):
-        '''Writes the term idfs and weights to a file
-        ----------
-        term_document : dict
-            Dictionary that contains the token as the key and the number of occurences as the value.
-
-        idf_list : dict
-            Dictionary that contains the token as the key and the idf as the value.
-
-        filename : string
-            The file to where the dict should be written
-        '''
-        if not os.path.exists(OUTPUT_DIR):
-            os.mkdir(OUTPUT_DIR, 0o775)
-        with open("%s%s" % (OUTPUT_DIR,filename), "w") as write_file:
-            for (token,idf) in idf_list.items():
-                s = '%s:%.15f' % (token,idf)
-                for docID in term_document[token]:
-                    s += ';%s:%.15f' % (docID,term_document[token][docID])
-                write_file.write("%s\n" % s)
 
     @staticmethod
     def load_stop_words(file):
@@ -51,7 +30,8 @@ class Indexer:
         with open(file)  as f_in:
             return [ _.split()[0] for _ in f_in ]
 
-    def __init__(self,filename,block_size_limit):
+    def __init__(self,filename,block_size_limit,output_dir):
+        self.OUTPUT_DIR = output_dir
         self.BLOCK_SIZE_LIMIT = block_size_limit #max number of documents per block 
         self.DATASET_FILENAME = filename
         self.stopwords = Indexer.load_stop_words('resources/stopwords.txt')
@@ -60,7 +40,10 @@ class Indexer:
         self.document_length_index = {}
         #LNC CALCULATION
         self.idf_list = {}
-
+        self.doc_norm = {}
+        # auxiliary structures
+        self.term_document_weights = {}
+        self.data = {}
 
     def indexer(self):
         '''An improved tokenizer that replaces all non-alphabetic characters by a space, lowercases
@@ -102,6 +85,7 @@ class Indexer:
             # Iterate over the CSV file ignoring entries without an abstract
             # and joining the title and abstract fields into a single string
             for idx,row in enumerate(csv.DictReader(csvfile)):
+                doc_tf = {}
                 if len(row['abstract']) > 0:
                     string =  row['title'] + ' ' + row['abstract']
                     # Removes non-alphabetic characters by a space, lowercases
@@ -123,29 +107,33 @@ class Indexer:
                         self.document_length_index[row['cord_uid']] += 1
 
                         # Counts the term frequency
-                        # if row['cord_uid'] not in term_index:
-                        #     term_index[row['cord_uid']] = {}
-                        # if tok not in term_index[row['cord_uid']]:
-                        #     term_index[row['cord_uid']][tok] = 1
-                        # else:
-                        #     term_index[row['cord_uid']][tok] += 1
-
-                        # Counts the term frequency
                         if tok not in term_index:
                             term_index[tok] = {}
                         if row['cord_uid'] not in term_index[tok]:
-                            term_index[tok][row['cord_uid']] = [tok_idx]
+                            term_index[tok][row['cord_uid']] = [str(tok_idx)]
                         else:
-                            term_index[tok][row['cord_uid']] += [tok_idx]
+                            term_index[tok][row['cord_uid']] += [str(tok_idx)]
+
+                        if tok not in doc_tf:
+                            doc_tf[tok] = 1
+                        else:
+                            doc_tf[tok] += 1
 
                     doc_number = (doc_number + 1) % self.BLOCK_SIZE_LIMIT
                     if doc_number == 0:
                         self.num_blocks += 1
                         dump_to_file(Spimi.sort_terms(term_index),'block_'+ str(self.num_blocks) +'.json')
+
+                    # list of documents and respective normalization factor
+                    docID = row['cord_uid']
+                    self.doc_norm[docID] = 1/math.sqrt(sum([( 1 + math.log10(tf) )**2 for tf in doc_tf.values()]))
+
             # writes the last block
             if len(term_index) > 0:
                 self.num_blocks += 1
                 dump_to_file(Spimi.sort_terms(term_index),'block_'+ str(self.num_blocks) +'.json')
+
+            self.N = len(self.document_length_index)
         ### MERGE BLOCKS ###
         Spimi.merge_blocks(self.num_blocks,self.num_tokens)
         
@@ -182,26 +170,46 @@ class Indexer:
                 "align": 2.012928877017827
                 }
         '''
-        term_document_weights = {}
-        for docID in term_index:
-            # 1 - NON-NORMALIZED WEIGHT CALCULATION
-            document_term_weights = {}
-            for token in term_index[docID]:
-                document_term_weights[token] = 1 + math.log10(term_index[docID][token])
-                if token not in term_document_weights:
-                    term_document_weights[token] = {}
-                term_document_weights[token][docID] = 1 + math.log10(term_index[docID][token])
         
-            # 2 - CALCULATION OF THE NORM FACTOR
-            norm_factor = 1/math.sqrt(sum([w**2 for w in document_term_weights.values()]))
-            
-            # 3 - NORMALIZED WEIGHT CALCULATION
-            for token in document_term_weights:
-                term_document_weights[token][docID] *= norm_factor
-                # 4 - Calculating IDF
-                N = len(self.document_length_index)
-                dft = len(term_document_weights[token])
-                self.idf_list[token] = math.log10(N/dft)
+        for f_name in os.listdir(Spimi.FOLDER):
+            if f_name.startswith('sorted_'):
+                with open(os.path.join(Spimi.FOLDER,f_name)) as block:
+                    self.term_document_weights = {}
+                    self.data = json.load(block)
+                    for token in self.data:
+                        self.term_document_weights[token] = {}
+                        for docID in self.data[token]:
+                            self.term_document_weights[token][docID] = (1 + math.log10(len(self.data[token][docID]))) * self.doc_norm[docID]
+                            # 4 - Calculating IDF
+                            dft = len(self.data[token])
+                            self.idf_list[token] = math.log10(self.N/dft)
+                    #dump..
+                    self.dump_weights_lnc('%s.csv'%f_name.split('.')[0])
+                    self.term_document_weights.clear()
+                    self.data.clear()
+
+
+    def dump_weights_lnc(self,filename):
+        '''Writes the term idfs and weights to a file
+        ----------
+        term_document : dict
+            Dictionary that contains the token as the key and the number of occurences as the value.
+
+        idf_list : dict
+            Dictionary that contains the token as the key and the idf as the value.
+
+        filename : string
+            The file to where the dict should be written
+        '''
+        if not os.path.exists(OUTPUT_DIR):
+            os.mkdir(OUTPUT_DIR, 0o775)
+        with open(os.path.join(OUTPUT_DIR,filename), "w+") as write_file:
+            for token in self.data:
+                s = '%s:%.15f' % (token,self.idf_list[token])
+                for docID in self.data[token]:
+                    s += ';%s:%f:%s' % (docID,self.term_document_weights[token][docID],','.join(self.data[token][docID]))
+                write_file.write("%s\n" % s)
+
 
     def bm25_avdl(self):
         '''Calculates average document length of the dataset, used for bm25

@@ -24,7 +24,7 @@ if __name__ == '__main__':
     print('STARTING INDEXING...')
     print('------------------------------------------------------------')
 
-    ind = Indexer(filename,2)
+    ind = Indexer(filename,2,'outputs/')
     # Trace used memory and time for the 
     # indexing process using the improved tokenizer
     tracemalloc.start()
@@ -40,10 +40,10 @@ if __name__ == '__main__':
     print(f"Memory usage when indexing was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     
     # # 2 - TF-IDF
-    # ind.lnc_calculation()
+    ind.lnc_calculation()
     # Indexer.dump_weights(ind.term_document_weights, ind.idf_list, 'tf_idf_weights.csv')
-    # current, peak = tracemalloc.get_traced_memory()
-    # print(f"Memory usage when calculating lnc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"Memory usage when calculating lnc was {current / 10**6}MB; Peak was {peak / 10**6}MB")
     
     # # # 3 - BMC
     # ind.bmc_pre_calculation(ind.document_length_index, ind.idf_list)
