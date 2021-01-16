@@ -364,19 +364,6 @@ def calculate_metrics(scores, latencies, time_elapsed):
 #########################################################
 # FILE METHODS
 #########################################################
-def load_stop_words(file):
-    '''Loads the list of stop words from a file
-    ----------
-    file : string
-        The file that contains the stop words, separated by the newline character            
-        
-    Returns
-    -------
-    stopwords : list
-        The list of stopwords
-    '''
-    with open(file)  as f_in:
-        return [ _.split()[0] for _ in f_in ]
 
 def load_queries(file,stopwords):
     '''Loads the list of queries from a file and tokenizes each term
